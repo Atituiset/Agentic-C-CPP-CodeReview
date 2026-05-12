@@ -1,0 +1,6 @@
+{
+  "name": "Agentic C/C++ Code Review",
+  "description": "Prototype dashboard for an autonomous Agent-based C/C++ code review system.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
