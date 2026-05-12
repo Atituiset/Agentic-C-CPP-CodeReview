@@ -1,4 +1,5 @@
 import os
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -7,6 +8,7 @@ from fastapi.responses import FileResponse
 from backend.database import engine, Base
 from backend.redis_client import get_redis, close_redis
 from backend.routers import jobs, sse, slots, reports
+from backend.services.worker import worker_loop
 
 
 @asynccontextmanager
@@ -16,8 +18,18 @@ async def lifespan(app: FastAPI):
     os.makedirs("./reports", exist_ok=True)
     Base.metadata.create_all(bind=engine)
     await get_redis()
+
+    # Start background worker
+    worker_task = asyncio.create_task(worker_loop())
+
     yield
+
     # Shutdown
+    worker_task.cancel()
+    try:
+        await worker_task
+    except asyncio.CancelledError:
+        pass
     await close_redis()
 
 

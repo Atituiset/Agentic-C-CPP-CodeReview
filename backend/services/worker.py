@@ -1,1 +1,91 @@
-pass
+import asyncio
+import json
+import os
+from datetime import datetime, timezone
+from pathlib import Path
+
+from backend.database import SessionLocal
+from backend.models.orm import Job, Task
+from backend.redis_client import pop_job_queue
+from backend.services.runner import run_orchestrator
+
+
+async def process_job(job_id: str):
+    db = SessionLocal()
+    try:
+        job = db.query(Job).filter(Job.id == job_id).first()
+        if not job or job.status != "queued":
+            return
+
+        job.status = "running"
+        job.started_at = datetime.now(timezone.utc)
+        db.commit()
+
+        # Create report directory
+        report_dir = Path("reports") / datetime.now().strftime("%Y%m%d_%H%M%S")
+        report_dir.mkdir(parents=True, exist_ok=True)
+        job.report_dir = str(report_dir)
+        db.commit()
+
+        file_paths = json.loads(job.file_paths) if job.file_paths else None
+
+        try:
+            proc = await run_orchestrator(
+                job_id=job.id,
+                repo_path=job.repo_path,
+                mode=job.mode,
+                target_commit=job.target_commit,
+                file_paths=file_paths,
+                report_dir=str(report_dir),
+            )
+
+            stdout, stderr = await proc.communicate()
+
+            if proc.returncode == 0:
+                job.status = "completed"
+            else:
+                job.status = "failed"
+
+        except Exception as e:
+            job.status = "failed"
+
+        job.completed_at = datetime.now(timezone.utc)
+        db.commit()
+
+        # Scan report directory for generated files
+        scan_reports(db, job, report_dir)
+
+    finally:
+        db.close()
+
+
+def scan_reports(db, job: Job, report_dir: Path):
+    """Scan report directory and create Task records."""
+    for md_file in report_dir.rglob("*.md"):
+        if md_file.name == "summary.md":
+            continue
+        relative = md_file.relative_to(report_dir)
+        log_file = md_file.with_suffix(".log")
+
+        task = Task(
+            job_id=job.id,
+            file_path=str(relative.with_suffix("")),
+            status="done",
+            report_file=str(md_file),
+            log_file=str(log_file) if log_file.exists() else None,
+        )
+        db.add(task)
+    db.commit()
+
+
+async def worker_loop():
+    """Background loop: consume jobs from Redis queue."""
+    while True:
+        try:
+            job_id = await pop_job_queue(timeout=5)
+            if job_id:
+                await process_job(job_id)
+            else:
+                await asyncio.sleep(1)
+        except Exception as e:
+            await asyncio.sleep(5)
