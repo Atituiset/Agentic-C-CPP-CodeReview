@@ -1017,6 +1017,30 @@ class OpenCodeOrchestrator:
 
 
 # ============================================================================
+# 工厂函数（供 Gateway 导入使用）
+# ============================================================================
+
+def create_orchestrator(
+    concurrency: int = 3,
+    nga_bin: str = "nga",
+    session_timeout: int = 600,
+    debug: bool = False,
+    web_port: int = 8080,
+) -> OpenCodeOrchestrator:
+    """Create an orchestrator instance without CLI parsing.
+
+    Used when importing orchestrator as a module from the Gateway.
+    """
+    return OpenCodeOrchestrator(
+        concurrency=concurrency,
+        nga_bin=nga_bin,
+        session_timeout=session_timeout,
+        debug=debug,
+        web_port=web_port,
+    )
+
+
+# ============================================================================
 # 命令行入口
 # ============================================================================
 
