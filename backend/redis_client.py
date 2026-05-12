@@ -1,3 +1,4 @@
+import json
 import redis.asyncio as aioredis
 from backend.config import settings
 
@@ -11,3 +12,40 @@ async def get_redis() -> aioredis.Redis:
             settings.redis_url, decode_responses=True
         )
     return redis_pool
+
+
+async def close_redis():
+    global redis_pool
+    if redis_pool is not None:
+        await redis_pool.aclose()
+        redis_pool = None
+
+
+def reset_redis_pool():
+    global redis_pool
+    redis_pool = None
+
+
+async def publish_log(slot_id: int, payload: dict):
+    redis = await get_redis()
+    channel = f"slot:{slot_id}:logs"
+    await redis.publish(channel, json.dumps(payload))
+
+
+async def publish_meta(slot_id: int, event: str, payload: dict):
+    redis = await get_redis()
+    channel = f"slot:{slot_id}:logs"
+    await redis.publish(
+        channel, json.dumps({"type": "meta", "event": event, **payload})
+    )
+
+
+async def push_job_queue(job_id: str):
+    redis = await get_redis()
+    await redis.lpush("scan:job:queue", job_id)
+
+
+async def pop_job_queue(timeout: int = 5) -> str | None:
+    redis = await get_redis()
+    result = await redis.brpop("scan:job:queue", timeout=timeout)
+    return result[1] if result else None
