@@ -3,9 +3,9 @@
 # Stage 1: Build frontend
 FROM node:22-alpine AS frontend-builder
 WORKDIR /app/frontend
-COPY Agentic-C-CPP-CodeReview/package*.json ./
+COPY frontend/package*.json ./
 RUN npm ci
-COPY Agentic-C-CPP-CodeReview/ .
+COPY frontend/ .
 RUN npm run build
 
 # Stage 2: Python runtime
