@@ -22,22 +22,32 @@ Merge `Agentic-C-CPP-CodeReview` (React dashboard) and `event-loop-agent` (Pytho
 ## Non-Goals (Phase 2+)
 
 - Multi-worker / distributed scanning
-- PostgreSQL persistence
-- Redis queues
+- PostgreSQL persistence (using SQLite for Phase 1)
 - CI/CD webhooks
 - User authentication
 
 ## Architecture
 
 ```
-┌──────────────┐      ┌──────────────────────────────────────────┐      ┌─────────┐
+                         ┌─────────────┐
+                         │    Redis    │
+                         │  (SSE/Queue)│
+                         └──────┬──────┘
+                                │
+┌──────────────┐      ┌─────────▼────────────────────────────────┐      ┌─────────┐
 │  React SPA   │◄────►│           FastAPI Gateway                │◄────►│  nga    │
 │  (Vite)      │  SSE  │  - Serve static files                   │      │  CLI    │
 │              │       │  - /api/jobs (submit/list)              │      └─────────┘
 │              │       │  - /api/sse/{slot_id} (live logs)       │         ▲
 │              │       │  - /api/slot/{id}/acquire|push|status   │      subprocess
 │              │       │  - /api/reports/{job_id} (view MD)      │         │
-└──────────────┘      └──────────────────────────────────────────┘   orchestrator.py
+└──────────────┘      └────┬─────────────────────────────────────┘   orchestrator.py
+                           │
+                    ┌──────▼──────┐      ┌──────────────┐
+                    │   SQLite    │      │  Filesystem  │
+                    │ (Job/Task   │      │  (reports/   │
+                    │   State)    │      │   logs)      │
+                    └─────────────┘      └──────────────┘
 ```
 
 ## Key Decisions
@@ -45,21 +55,24 @@ Merge `Agentic-C-CPP-CodeReview` (React dashboard) and `event-loop-agent` (Pytho
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | Backend | FastAPI replaces Express | Reuses orchestrator's web_server.py patterns; single Python process |
-| SSE bridge | In-memory asyncio Queues | No Redis needed for MVP; simple and fast |
-| Persistence | Filesystem only (reports/) | No PostgreSQL for MVP; orchestrator already writes files |
+| SSE bridge | Redis Pub/Sub | Decouples orchestrator from Gateway; survives reconnections; Phase 2 ready |
+| Database | SQLite (SQLAlchemy) | Lightweight, file-based, no extra container; stores job/task state + file indexes |
+| Report/Log storage | Filesystem (reports/) | Orchestrator natively writes files; DB stores paths only |
 | Orchestrator execution | asyncio subprocess | Keeps orchestrator isolated; preserves CLI compatibility |
-| Job queue | In-memory list | Resets on restart; acceptable for MVP |
+| Job queue | Redis list (RPUSH/BLPOP) | Persistent across restarts; single-consumer queue for Phase 1 |
 
 ## Data Flow: Scan Lifecycle
 
 1. **User clicks "Trigger Scan"** → Frontend `POST /api/jobs`
-2. **Gateway creates job** → Assigns `job_id`, stores in memory
-3. **Gateway spawns orchestrator** → `asyncio.create_subprocess_exec(python orchestrator.py --files ...)`
+2. **Gateway creates job** → Writes to SQLite, pushes job to Redis queue
+3. **Background worker picks up job** → BLPOP from Redis, spawns orchestrator subprocess
 4. **Orchestrator acquires slot** → `POST /api/slot/{id}/acquire` to Gateway
 5. **Orchestrator pushes logs** → `POST /api/slot/{id}/push` to Gateway
-6. **Gateway fans out to SSE** → All connected clients for that slot receive the log
-7. **Orchestrator releases slot** → `POST /api/slot/{id}/release`
-8. **Job completes** → Gateway updates job status, reports available at `/api/reports/{job_id}`
+6. **Gateway publishes to Redis** → `PUBLISH slot:{id}:logs` with log chunk
+7. **SSE subscribers receive** → Gateway's SSE handlers listen on Redis, fan out to clients
+8. **Orchestrator updates status** → `POST /api/slot/{id}/status` → Gateway updates SQLite
+9. **Orchestrator releases slot** → `POST /api/slot/{id}/release`
+10. **Job completes** → Worker updates job status in SQLite, reports available at `/api/reports/{job_id}`
 
 ## API Endpoints
 
@@ -96,16 +109,57 @@ Merge `Agentic-C-CPP-CodeReview` (React dashboard) and `event-loop-agent` (Pytho
 
 ```
 backend/
-├── main.py              # FastAPI app, static files, lifespan
+├── main.py              # FastAPI app, static files, lifespan, DB init
+├── config.py            # Settings (Redis URL, DB path, etc.)
+├── database.py          # SQLAlchemy engine, session, Base
+├── redis_client.py      # Redis connection + pub/sub helpers
 ├── routers/
 │   ├── jobs.py          # Job submission, listing, status
-│   ├── sse.py           # SSE streaming endpoints
-│   └── slots.py         # Slot acquire/push/status/release
+│   ├── sse.py           # SSE streaming endpoints (Redis pub/sub)
+│   ├── slots.py         # Slot acquire/push/status/release
+│   └── reports.py       # Report listing and serving
 ├── services/
-│   └── runner.py        # Orchestrator subprocess management
+│   ├── runner.py        # Orchestrator subprocess management
+│   └── worker.py        # Background job consumer (Redis BLPOP)
 └── models/
-    └── schemas.py       # Pydantic models (Job, SlotState, etc.)
+    ├── schemas.py        # Pydantic models
+    └── orm.py            # SQLAlchemy ORM models (Job, Task, ScanLog)
 ```
+
+## Database Schema (SQLite)
+
+### jobs
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID PK | Job identifier |
+| repo_path | TEXT | Repository path |
+| mode | TEXT | `diff` or `files` |
+| target_commit | TEXT | Base commit (diff mode) |
+| file_paths | TEXT | JSON array of files (files mode) |
+| status | TEXT | `pending`, `queued`, `running`, `completed`, `failed`, `cancelled` |
+| total_files | INT | Total tasks |
+| completed_files | INT | Done tasks |
+| failed_files | INT | Failed tasks |
+| report_dir | TEXT | Path to reports/YYYYMMDD_HHMMSS |
+| created_at | TIMESTAMP | |
+| started_at | TIMESTAMP | |
+| completed_at | TIMESTAMP | |
+
+### tasks
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID PK | Task identifier |
+| job_id | UUID FK | Parent job |
+| file_path | TEXT | Scanned file |
+| slot_id | INT | Assigned slot (0-2) |
+| status | TEXT | `pending`, `running`, `done`, `failed` |
+| report_file | TEXT | Path to .md report |
+| log_file | TEXT | Path to .log file |
+| started_at | TIMESTAMP | |
+| completed_at | TIMESTAMP | |
+| duration_seconds | FLOAT | |
+| return_code | INT | nga exit code |
+| error_message | TEXT | Error if failed |
 
 ## Orchestrator Changes
 
@@ -131,17 +185,32 @@ No changes to scanning logic, process management, or report generation.
 
 ```yaml
 services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
   app:
     build: .
     ports:
       - "3000:3000"
     volumes:
       - ./reports:/app/reports
+      - ./data:/app/data
     environment:
       - PORT=3000
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=sqlite:///data/app.db
+    depends_on:
+      - redis
+
+volumes:
+  redis_data:
 ```
 
-Single container: FastAPI serves frontend static files and manages orchestrator.
+Two containers: Redis for queues and SSE pub/sub; FastAPI app serves frontend, manages DB, and runs orchestrator subprocesses.
 
 ## Error Handling
 
@@ -162,13 +231,14 @@ Single container: FastAPI serves frontend static files and manages orchestrator.
 
 | Commit | Scope | Files |
 |--------|-------|-------|
-| `phase1: scaffold backend` | Create `backend/` with FastAPI, routers, models | `backend/*` |
+| `phase1: scaffold backend` | Create `backend/` with FastAPI, config, DB, Redis | `backend/*` |
 | `phase1: orchestrator importable` | Wrap `main()`, add `create_orchestrator()` | `orchestrator.py` |
-| `phase1: job api + runner` | Job submission, orchestrator subprocess | `backend/routers/jobs.py`, `backend/services/runner.py` |
-| `phase1: sse bridge` | In-memory queues, slot endpoints, SSE streams | `backend/routers/sse.py`, `backend/routers/slots.py` |
+| `phase1: database models` | SQLAlchemy ORM models, Alembic init | `backend/models/orm.py`, `alembic/*` |
+| `phase1: job api + redis queue` | Job submission, Redis queue, SQLite storage | `backend/routers/jobs.py`, `backend/services/worker.py` |
+| `phase1: sse bridge via redis` | Redis pub/sub for SSE, slot endpoints | `backend/routers/sse.py`, `backend/routers/slots.py`, `backend/redis_client.py` |
 | `phase1: frontend real data` | Jobs API integration, scan trigger | `src/App.tsx` |
 | `phase1: report viewer` | Report listing and viewing | `src/components/ReportViewer.tsx` |
-| `phase1: docker-compose` | One-command startup | `docker-compose.yml`, `Dockerfile` |
+| `phase1: docker-compose` | Redis + app containers | `docker-compose.yml`, `Dockerfile` |
 
 ## Risks & Mitigations
 
