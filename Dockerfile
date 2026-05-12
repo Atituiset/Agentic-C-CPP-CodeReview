@@ -12,14 +12,17 @@ RUN npm run build
 FROM python:3.12-slim
 WORKDIR /app
 
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-COPY backend/requirements.txt ./backend/
-RUN pip install --no-cache-dir -r backend/requirements.txt
+# Install Python dependencies with uv
+COPY backend/pyproject.toml backend/uv.lock ./backend/
+RUN uv sync --frozen --project backend
 
 # Copy backend code
 COPY backend/ ./backend/
@@ -38,4 +41,4 @@ ENV DATABASE_URL=sqlite:///app/data/app.db
 
 EXPOSE 8000
 
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "--project", "backend", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
