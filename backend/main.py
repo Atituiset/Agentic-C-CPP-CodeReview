@@ -1,6 +1,7 @@
 import os
 import asyncio
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -11,11 +12,15 @@ from backend.routers import jobs, sse, slots, reports
 from backend.services.worker import worker_loop
 
 
+# Project root relative to this file (backend/main.py -> project root)
+PROJECT_ROOT = Path(__file__).parent.parent
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    os.makedirs("./data", exist_ok=True)
-    os.makedirs("./reports", exist_ok=True)
+    os.makedirs(PROJECT_ROOT / "data", exist_ok=True)
+    os.makedirs(PROJECT_ROOT / "reports", exist_ok=True)
     Base.metadata.create_all(bind=engine)
     await get_redis()
 
@@ -47,14 +52,15 @@ async def health():
 
 
 # Static files: serve React build if dist/ exists
-if os.path.isdir("./frontend/dist"):
-    app.mount("/assets", StaticFiles(directory="./frontend/dist/assets"), name="assets")
+FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
+if FRONTEND_DIST.is_dir():
+    app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
 
     @app.get("/{path:path}")
     async def serve_spa(path: str):
         if path.startswith("api/"):
             return {"error": "Not found"}
-        index_path = "./frontend/dist/index.html"
-        if os.path.exists(index_path):
-            return FileResponse(index_path)
+        index_path = FRONTEND_DIST / "index.html"
+        if index_path.exists():
+            return FileResponse(str(index_path))
         return {"error": "Frontend not built"}

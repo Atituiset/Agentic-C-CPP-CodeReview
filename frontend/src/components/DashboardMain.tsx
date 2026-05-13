@@ -1,6 +1,6 @@
 import React from 'react';
 import { Play, Activity, Server } from 'lucide-react';
-import { MOCK_NODES, NUM_SLOTS } from '../constants';
+import { NODES, NUM_SLOTS } from '../constants';
 
 export default function DashboardMain({ isScanning, handleStartScan, scanMetrics, activeConnections, onNodeClick, slots }: any) {
   return (
@@ -60,7 +60,7 @@ export default function DashboardMain({ isScanning, handleStartScan, scanMetrics
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {MOCK_NODES.map((node) => {
+              {NODES.map((node) => {
                 // Determine mock load based on state
                 let load = '0%';
                 let isPulse = false;

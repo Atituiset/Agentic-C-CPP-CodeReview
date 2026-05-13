@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -8,6 +9,9 @@ from backend.models.orm import Job
 from backend.redis_client import push_job_queue
 
 router = APIRouter()
+
+# Project root: backend/routers/jobs.py -> backend -> project root
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 
 def get_db():
@@ -38,10 +42,22 @@ def _job_to_response(job: Job) -> JobResponse:
     return JobResponse.model_validate(data)
 
 
+def _resolve_repo_path(repo_path: str | None) -> str:
+    """Resolve relative repo paths against PROJECT_ROOT so orchestrator finds files
+    regardless of backend's current working directory."""
+    path = repo_path or "."
+    p = Path(path)
+    if p.is_absolute():
+        return str(p)
+    # Relative paths resolve against project root
+    resolved = (PROJECT_ROOT / p).resolve()
+    return str(resolved)
+
+
 @router.post("/api/jobs", status_code=201)
 async def create_job(payload: JobCreate, db: Session = Depends(get_db)):
     job = Job(
-        repo_path=payload.repo_path or ".",
+        repo_path=_resolve_repo_path(payload.repo_path),
         mode=payload.mode,
         target_commit=payload.target_commit,
         file_paths=json.dumps(payload.file_paths) if payload.file_paths else None,

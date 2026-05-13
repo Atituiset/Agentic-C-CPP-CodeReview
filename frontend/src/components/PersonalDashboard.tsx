@@ -1,6 +1,6 @@
 import React from 'react';
 import { Play, Activity, Server, Database, AlertTriangle, Cpu } from 'lucide-react';
-import { PERSONAL_NODES, NUM_SLOTS } from '../constants';
+import { NODES, NUM_SLOTS } from '../constants';
 
 export default function PersonalDashboard({ isScanning, handleStartScan, scanMetrics, slots, onNodeClick }: any) {
   return (
@@ -64,7 +64,7 @@ export default function PersonalDashboard({ isScanning, handleStartScan, scanMet
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {PERSONAL_NODES.map((node) => {
+              {NODES.map((node) => {
                 let load = '0%';
                 let isPulse = false;
                 if (node.state === 'active') {

@@ -70,6 +70,12 @@ try:
 except ImportError:
     httpx = None  # type: ignore
 
+# Optional Redis for pushing slot logs to frontend (used in all modes)
+try:
+    import redis.asyncio as aioredis
+except ImportError:
+    aioredis = None  # type: ignore
+
 # ANSI 转义序列过滤（用于清理 nga 终端控制输出，作为 TERM=dumb 的兜底）
 ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
@@ -335,16 +341,26 @@ class OpenCodeOrchestrator:
         self.repo_path: Optional[Path] = None
         self.start_commit: Optional[str] = None
 
-        # debug 模式下的槽位管理和 web 服务器状态
-        self.slot_manager: Optional[SlotManager] = None
+        # 槽位管理（所有模式下都启用，用于前端实时展示）
+        self.slot_manager = SlotManager(num_slots=concurrency)
+
+        # debug 模式下启动 web 服务器（可选）
+        self.debug = debug
+        self.web_port = web_port
         self.web_proc: Optional[subprocess.Popen] = None
         self.web_client: Optional["httpx.AsyncClient"] = None  # type: ignore
-        if self.debug:
-            self.slot_manager = SlotManager(num_slots=concurrency)
-            if httpx is not None:
-                self.web_client = httpx.AsyncClient(timeout=httpx.Timeout(5.0))
-            else:
-                logger.warning("httpx not installed, web debug will not work. Run: pip install httpx")
+        if self.debug and httpx is not None:
+            self.web_client = httpx.AsyncClient(timeout=httpx.Timeout(5.0))
+
+        # Redis 推送（如果环境变量配置了 REDIS_URL）
+        self._redis: Optional["aioredis.Redis"] = None  # type: ignore
+        redis_url = os.environ.get("REDIS_URL")
+        if redis_url and aioredis is not None:
+            try:
+                self._redis = aioredis.from_url(redis_url)
+                logger.info(f"Redis connected for slot push: {redis_url}")
+            except Exception as e:
+                logger.warning(f"Redis connection failed: {e}")
 
         # 输出目录（支持通过 REPORT_DIR 环境变量指定，用于 worker 统一目录）
         report_dir_env = os.environ.get("REPORT_DIR")
@@ -450,6 +466,16 @@ class OpenCodeOrchestrator:
             )
         except Exception as e:
             logger.debug(f"Web push failed: {e}")
+
+    async def _redis_push(self, slot_id: int, data: dict):
+        """推送 slot 事件到 Redis（供前端 SSE 消费）。"""
+        if self._redis is None:
+            return
+        try:
+            import json
+            await self._redis.publish(f"slot:{slot_id}:logs", json.dumps(data))
+        except Exception as e:
+            logger.debug(f"Redis push failed: {e}")
 
     async def _web_status(self, slot_id: int, status: str, duration: float = 0.0):
         if self.web_client is None:
@@ -675,6 +701,10 @@ class OpenCodeOrchestrator:
         if self.debug:
             await self._stop_web_server()
 
+        # 关闭 Redis 连接
+        if self._redis is not None:
+            await self._redis.aclose()
+
     def _build_diff_scan_cmd(self, task: ScanTask) -> str:
         """Diff 模式下构造审查提示词，指引 nga 读取 diff 文件并审查"""
         message = (
@@ -781,13 +811,12 @@ class OpenCodeOrchestrator:
 
             logger.info(f"[{task.task_id}] START {task.file_path}")
 
-            # debug 模式下分配槽位并通知 web server
-            slot_id: Optional[int] = None
-            if self.debug and self.slot_manager is not None:
-                slot_id = await self.slot_manager.acquire(task.task_id, task.file_path)
-                task.slot_id = slot_id
-                await self._web_acquire(slot_id, task.task_id, task.file_path)
-                logger.info(f"[{task.task_id}] Assigned to web slot #{slot_id}")
+            # 分配槽位并推送状态（所有模式下都启用，用于前端实时展示）
+            slot_id = await self.slot_manager.acquire(task.task_id, task.file_path)
+            task.slot_id = slot_id
+            await self._web_acquire(slot_id, task.task_id, task.file_path)
+            await self._redis_push(slot_id, {"type": "meta", "event": "acquire", "task_id": task.task_id, "file_path": task.file_path})
+            logger.info(f"[{task.task_id}] Assigned to slot #{slot_id}")
 
             try:
                 # 0. 按 diff 行数计算动态超时
@@ -808,13 +837,33 @@ class OpenCodeOrchestrator:
                 logger.debug(f"[{task.task_id}] Command: nga run '{message[:200]}...'")
 
                 # 2. 启动 nga 子进程
-                # debug 模式下使用 TERM=xterm-256color 保留 ANSI 输出（捕获思考过程）
-                # 非 debug 模式下使用 TERM=dumb 过滤 ANSI
+                # 每个任务使用独立的 HOME 目录，避免多个 opencode 进程并发访问
+                # 同一个 SQLite 数据库文件 (~/.local/share/opencode/opencode.db)。
+                # 但配置和缓存需要链接到用户的原始目录，否则 nga 会使用默认模型。
+                import tempfile
+                tmp_home = tempfile.mkdtemp(prefix="opencode_")
+                original_home = Path.home()
+
+                # 链接配置和缓存，保持用户的模型设置
+                for subdir in [".config", ".cache"]:
+                    src = original_home / subdir
+                    if src.exists():
+                        dst = Path(tmp_home) / subdir
+                        dst.parent.mkdir(parents=True, exist_ok=True)
+                        os.symlink(src, dst)
+
+                # 创建独立的数据目录（只隔离 SQLite 数据库）
+                local_share = Path(tmp_home) / ".local" / "share" / "opencode"
+                local_share.mkdir(parents=True, exist_ok=True)
+
+                # 复制认证信息（如有）
+                auth_src = original_home / ".local" / "share" / "opencode" / "auth.json"
+                if auth_src.exists():
+                    shutil.copy2(auth_src, local_share / "auth.json")
+
                 env = os.environ.copy()
-                if self.debug:
-                    env["TERM"] = "xterm-256color"
-                else:
-                    env["TERM"] = "dumb"
+                env["HOME"] = tmp_home
+                env["TERM"] = "dumb"
                 proc = await asyncio.create_subprocess_exec(
                     self.nga_bin,
                     "run",
@@ -836,10 +885,10 @@ class OpenCodeOrchestrator:
                 # 统计信息，用于超时诊断
                 io_stats = {"last_output_time": time.time(), "total_bytes": 0, "last_label": ""}
 
-                async def _read_stream(stream, chunks: list[str], label: str, fh, slot_id: Optional[int] = None):
+                async def _read_stream(stream, chunks: list[str], label: str, fh, slot_id: int):
                     """实时读取 nga 输出：
                     - 过滤 ANSI 后写入 log 文件（保留原有行为）
-                    - 推送原始内容（含 ANSI）到 web debug 界面（debug 模式）
+                    - 推送原始内容（含 ANSI）到 web debug 界面和 Redis
                     """
                     while True:
                         data = await stream.read(4096)
@@ -847,8 +896,9 @@ class OpenCodeOrchestrator:
                             break
                         raw_text = data.decode("utf-8", errors="replace")
                         # 推送原始内容到 web（保留 ANSI，让前端 ansi_up 渲染）
-                        if slot_id is not None:
-                            await self._web_push(slot_id, label, raw_text)
+                        await self._web_push(slot_id, label, raw_text)
+                        # 同时推送到 Redis（供前端 SSE 消费）
+                        await self._redis_push(slot_id, {"type": "log", "content": raw_text})
                         # 过滤 ANSI 后用于 log 文件和后续报告
                         clean_text = ANSI_ESCAPE.sub("", raw_text)
                         chunks.append(clean_text)
@@ -959,9 +1009,9 @@ class OpenCodeOrchestrator:
 
                 tracker.complete_task(success=(task.status == "done"))
 
-                # 通知 web server 任务状态变更
-                if slot_id is not None:
-                    await self._web_status(slot_id, task.status, task.duration)
+                # 通知 web server 和 Redis 任务状态变更
+                await self._web_status(slot_id, task.status, task.duration)
+                await self._redis_push(slot_id, {"type": "meta", "event": "status", "status": task.status, "duration": task.duration})
 
             except Exception as e:
                 task.status = "failed"
@@ -997,17 +1047,23 @@ class OpenCodeOrchestrator:
                     pass
                 tracker.complete_task(success=False)
 
-                # 通知 web server 异常状态
-                if slot_id is not None:
-                    await self._web_status(slot_id, "failed", 0.0)
+                # 通知 web server 和 Redis 异常状态
+                await self._web_status(slot_id, "failed", 0.0)
+                await self._redis_push(slot_id, {"type": "meta", "event": "status", "status": "failed", "duration": 0.0})
 
             finally:
-                # 释放 web 槽位（无论成功/失败/异常）
-                if slot_id is not None:
-                    await self._web_release(slot_id)
-                    if self.slot_manager is not None:
-                        await self.slot_manager.release(slot_id)
-                    logger.info(f"[{task.task_id}] Released web slot #{slot_id}")
+                # 释放 web 槽位和 Redis（无论成功/失败/异常）
+                await self._web_release(slot_id)
+                await self._redis_push(slot_id, {"type": "meta", "event": "release"})
+                await self.slot_manager.release(slot_id)
+                logger.info(f"[{task.task_id}] Released slot #{slot_id}")
+                # 清理临时 HOME 目录
+                if "tmp_home" in locals() and tmp_home:
+                    try:
+                        shutil.rmtree(tmp_home, ignore_errors=True)
+                        logger.debug(f"[{task.task_id}] Cleaned up temp home: {tmp_home}")
+                    except Exception:
+                        pass
 
         # 任务完成后执行清理（兜底：清理本任务可能残留的锁）
         await self._cleanup_nga_locks(task.task_id)
