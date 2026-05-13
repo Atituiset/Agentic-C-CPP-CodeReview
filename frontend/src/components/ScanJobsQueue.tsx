@@ -16,8 +16,33 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
       time: j.created_at ? `Created ${new Date(j.created_at).toLocaleString()}` : '',
       type: j.mode === 'diff' ? 'Diff Analysis' : 'Full Analysis',
       rawId: j.id,
+      totalFiles: j.total_files || 0,
+      completedFiles: j.completed_files || 0,
+      failedFiles: j.failed_files || 0,
     }))
   ];
+
+  const renderProgress = (job: any) => {
+    if (job.totalFiles <= 0) return null;
+    const pct = Math.round((job.completedFiles / job.totalFiles) * 100);
+    return (
+      <div className="flex items-center gap-2">
+        <div className="w-24 bg-[#010409] h-1.5 rounded-full overflow-hidden border border-[#30363d]">
+          <div
+            className="h-full bg-[#238636] transition-all duration-500"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <span className="text-[10px] text-[#8b949e] tabular-nums">
+          {job.completedFiles}/{job.totalFiles}
+        </span>
+        {job.failedFiles > 0 && (
+          <span className="text-[10px] text-[#f85149]">{job.failedFiles} failed</span>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col h-full bg-[#06090e]">
       <header className="px-8 py-5 bg-[#0d1117] border-b border-[#30363d] flex items-center justify-between shrink-0 shadow-sm flex-wrap gap-4">
@@ -38,13 +63,14 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
                 <th className="px-5 py-3">Repository</th>
                 <th className="px-5 py-3">Branch / Commit</th>
                 <th className="px-5 py-3">Job Type</th>
+                <th className="px-5 py-3 text-center">Progress</th>
                 <th className="px-5 py-3 text-right">Timing</th>
                 <th className="px-5 py-3 text-center">Status</th>
                 <th className="px-5 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
-              {[...activeJobs, ...allJobs].map((job) => (
+              {allJobs.map((job) => (
                 <tr key={job.id} className="hover:bg-[#161b22] transition-colors group cursor-pointer">
                   <td className="px-5 py-4 font-mono text-[#58a6ff] text-xs">
                     {job.id}
@@ -55,6 +81,9 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
                     {job.commit}
                   </td>
                   <td className="px-5 py-4 text-[#c9d1d9] text-xs">{job.type}</td>
+                  <td className="px-5 py-4 text-center">
+                    {renderProgress(job)}
+                  </td>
                   <td className="px-5 py-4 text-[#8b949e] text-xs text-right whitespace-nowrap">{job.time}</td>
                   <td className="px-5 py-4 text-center">
                     <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${

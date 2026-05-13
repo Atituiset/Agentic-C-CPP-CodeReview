@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, FileText, Loader2 } from 'lucide-react';
+import { ArrowLeft, FileText, Loader2, ScrollText } from 'lucide-react';
 import { fetchReports, fetchReportFile } from '../hooks/useApi';
 
 interface ReportViewerProps {
@@ -11,6 +11,7 @@ interface ReportItem {
   filename: string;
   path: string;
   size: number;
+  type: string;
 }
 
 export default function ReportViewer({ jobId, onBack }: ReportViewerProps) {
@@ -68,7 +69,7 @@ export default function ReportViewer({ jobId, onBack }: ReportViewerProps) {
         {/* Sidebar - Report List */}
         <div className="w-72 bg-[#0d1117] border-r border-[#30363d] flex flex-col shrink-0">
           <div className="px-4 py-3 border-b border-[#30363d] bg-[#161b22]">
-            <h2 className="text-xs font-semibold text-[#8b949e] uppercase tracking-wider">Available Reports</h2>
+            <h2 className="text-xs font-semibold text-[#8b949e] uppercase tracking-wider">Available Reports & Logs</h2>
           </div>
           <div className="flex-1 overflow-y-auto">
             {loading ? (
@@ -90,8 +91,15 @@ export default function ReportViewer({ jobId, onBack }: ReportViewerProps) {
                       : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
                   }`}
                 >
-                  <div className="font-medium truncate">{report.filename}</div>
-                  <div className="text-[10px] text-[#8b949e] mt-0.5">{(report.size / 1024).toFixed(1)} KB</div>
+                  <div className="flex items-center gap-2">
+                    {report.type === 'log' ? (
+                      <ScrollText size={14} className="text-[#d29922] shrink-0" />
+                    ) : (
+                      <FileText size={14} className="text-[#58a6ff] shrink-0" />
+                    )}
+                    <span className="font-medium truncate">{report.filename}</span>
+                  </div>
+                  <div className="text-[10px] text-[#8b949e] mt-0.5 pl-6">{(report.size / 1024).toFixed(1)} KB</div>
                 </button>
               ))
             )}
@@ -108,7 +116,14 @@ export default function ReportViewer({ jobId, onBack }: ReportViewerProps) {
             <div className="p-8 max-w-4xl">
               <div className="bg-[#0d1117] border border-[#30363d] rounded-xl shadow-sm overflow-hidden">
                 <div className="px-5 py-3 border-b border-[#30363d] bg-[#161b22] flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-[#e6edf3] font-mono">{reports.find(r => r.path === selectedReport)?.filename || selectedReport}</h2>
+                  <h2 className="text-sm font-semibold text-[#e6edf3] font-mono flex items-center gap-2">
+                    {reports.find(r => r.path === selectedReport)?.type === 'log' ? (
+                      <ScrollText size={16} className="text-[#d29922]" />
+                    ) : (
+                      <FileText size={16} className="text-[#58a6ff]" />
+                    )}
+                    {reports.find(r => r.path === selectedReport)?.filename || selectedReport}
+                  </h2>
                 </div>
                 <div className="p-6 prose prose-invert prose-sm max-w-none">
                   <pre className="whitespace-pre-wrap font-mono text-[13px] leading-relaxed text-[#c9d1d9]">
