@@ -36,8 +36,8 @@ async def list_reports(job_id: str):
         db.close()
 
 
-@router.get("/api/reports/{job_id}/{filename}")
-async def get_report(job_id: str, filename: str):
+@router.get("/api/reports/{job_id}/{filepath:path}")
+async def get_report(job_id: str, filepath: str):
     db = SessionLocal()
     try:
         job = db.query(Job).filter(Job.id == job_id).first()
@@ -45,7 +45,7 @@ async def get_report(job_id: str, filename: str):
             raise HTTPException(status_code=404, detail="Job not found")
 
         report_dir = Path(job.report_dir)
-        file_path = report_dir / filename
+        file_path = report_dir / filepath
 
         # Security: ensure file is within report_dir
         if not str(file_path.resolve()).startswith(str(report_dir.resolve())):
