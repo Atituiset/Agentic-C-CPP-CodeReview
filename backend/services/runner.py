@@ -1,5 +1,6 @@
 import asyncio
 import os
+import sys
 from pathlib import Path
 
 
@@ -27,7 +28,9 @@ async def run_orchestrator(
 ) -> asyncio.subprocess.Process:
     """Spawn orchestrator subprocess for a job."""
     script = find_orchestrator_script()
-    cmd = ["python3", script]
+    # Use sys.executable so orchestrator runs in the same Python environment
+    # (backend/.venv) where redis-py is installed.
+    cmd = [sys.executable, script]
 
     if mode == "diff" and target_commit:
         cmd.extend(["--diff", target_commit, "--repo", repo_path])

@@ -27,7 +27,7 @@ export default function ReportViewer({ jobId, onBack }: ReportViewerProps) {
       .then((data) => {
         setReports(data.reports || []);
         if (data.reports?.length > 0) {
-          setSelectedReport(data.reports[0].filename);
+          setSelectedReport(data.reports[0].path);
         }
       })
       .catch((err) => setError(err.message))
@@ -82,10 +82,10 @@ export default function ReportViewer({ jobId, onBack }: ReportViewerProps) {
             ) : (
               reports.map((report) => (
                 <button
-                  key={report.filename}
-                  onClick={() => setSelectedReport(report.filename)}
+                  key={report.path}
+                  onClick={() => setSelectedReport(report.path)}
                   className={`w-full text-left px-4 py-3 text-sm border-b border-[#30363d]/50 transition-colors ${
-                    selectedReport === report.filename
+                    selectedReport === report.path
                       ? 'bg-[#21262d] text-[#e6edf3] border-l-2 border-l-[#58a6ff]'
                       : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
                   }`}
@@ -108,7 +108,7 @@ export default function ReportViewer({ jobId, onBack }: ReportViewerProps) {
             <div className="p-8 max-w-4xl">
               <div className="bg-[#0d1117] border border-[#30363d] rounded-xl shadow-sm overflow-hidden">
                 <div className="px-5 py-3 border-b border-[#30363d] bg-[#161b22] flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-[#e6edf3] font-mono">{selectedReport}</h2>
+                  <h2 className="text-sm font-semibold text-[#e6edf3] font-mono">{reports.find(r => r.path === selectedReport)?.filename || selectedReport}</h2>
                 </div>
                 <div className="p-6 prose prose-invert prose-sm max-w-none">
                   <pre className="whitespace-pre-wrap font-mono text-[13px] leading-relaxed text-[#c9d1d9]">

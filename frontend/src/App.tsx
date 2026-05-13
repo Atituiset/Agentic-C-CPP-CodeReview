@@ -11,7 +11,7 @@ import VulnerabilityCenter from './components/VulnerabilityCenter';
 import PersonalDashboard from './components/PersonalDashboard';
 import WorkerFleet from './components/WorkerFleet';
 import ScanJobsQueue from './components/ScanJobsQueue';
-import { NUM_SLOTS, MOCK_NODES } from './constants';
+import { NUM_SLOTS } from './constants';
 
 interface SlotState {
   taskId: string | null;
@@ -189,7 +189,7 @@ export default function App() {
             <div className="bg-[#161b22] rounded-lg p-4 border border-[#30363d] shadow-sm">
                <div className="text-xs text-[#8b949e] mb-3 font-semibold uppercase tracking-wider">Fleet Utilization</div>
                <div className="flex items-end gap-2 mb-2">
-                 <span className="text-2xl font-bold text-[#e6edf3]">{((activeConnections / (MOCK_NODES.length * NUM_SLOTS)) * 100).toFixed(0)}%</span>
+                 <span className="text-2xl font-bold text-[#e6edf3]">{((activeConnections / NUM_SLOTS) * 100).toFixed(0)}%</span>
                  <span className="text-xs text-[#8b949e] mb-1">allocated</span>
                </div>
                <div className="w-full bg-[#06090e] h-2 rounded-full overflow-hidden border border-[#30363d]">
@@ -227,7 +227,7 @@ export default function App() {
           <NodeDetail
             nodeId={selectedNodeId!}
             onBack={() => { setCurrentView('dashboard'); setSelectedNodeId(null); }}
-            slots={selectedNodeId === 'node-us-east-1a' || selectedNodeId === 'macbook-pro-m2' ? slots : Array.from({ length: 3 }, () => ({ taskId: null, filePath: null, status: 'waiting', logs: [] }))}
+            slots={slots}
           />
         ) : currentView === 'fleet' ? (
           <WorkerFleet activeConnections={activeConnections} onNodeClick={handleNodeClick} />

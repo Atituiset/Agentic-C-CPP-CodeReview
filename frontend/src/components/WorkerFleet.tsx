@@ -1,9 +1,9 @@
 import React from 'react';
 import { Server } from 'lucide-react';
-import { MOCK_NODES, PERSONAL_NODES } from '../constants';
+import { NODES } from '../constants';
 
 export default function WorkerFleet({ activeConnections, onNodeClick }: any) {
-  const allNodes = [...MOCK_NODES, ...PERSONAL_NODES];
+  const allNodes = NODES;
 
   return (
     <div className="flex flex-col h-full bg-[#06090e]">
@@ -40,7 +40,7 @@ export default function WorkerFleet({ activeConnections, onNodeClick }: any) {
                   </td>
                   <td className="px-5 py-4 text-[#e6edf3] text-xs font-mono">{node.ip}</td>
                   <td className="px-5 py-4 text-[#8b949e] text-xs">{node.region}</td>
-                  <td className="px-5 py-4 text-[#8b949e] text-xs">{PERSONAL_NODES.some(m => m.id === node.id) ? 'Personal/Local' : 'Enterprise / K8s'}</td>
+                  <td className="px-5 py-4 text-[#8b949e] text-xs">Local Worker</td>
                   <td className="px-5 py-4 text-center">
                     <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${
                       node.state === 'active' ? 'text-[#3fb950] bg-[#3fb950]/10 border-[#3fb950]/20' :
