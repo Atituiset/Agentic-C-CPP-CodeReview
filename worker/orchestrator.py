@@ -346,8 +346,12 @@ class OpenCodeOrchestrator:
             else:
                 logger.warning("httpx not installed, web debug will not work. Run: pip install httpx")
 
-        # 输出目录
-        self.output_dir = Path("reports") / datetime.now().strftime("%Y%m%d_%H%M%S")
+        # 输出目录（支持通过 REPORT_DIR 环境变量指定，用于 worker 统一目录）
+        report_dir_env = os.environ.get("REPORT_DIR")
+        if report_dir_env:
+            self.output_dir = Path(report_dir_env)
+        else:
+            self.output_dir = Path("reports") / datetime.now().strftime("%Y%m%d_%H%M%S")
         self.output_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Output directory: {self.output_dir}")
 

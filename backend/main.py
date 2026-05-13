@@ -52,6 +52,8 @@ if os.path.isdir("./frontend/dist"):
 
     @app.get("/{path:path}")
     async def serve_spa(path: str):
+        if path.startswith("api/"):
+            return {"error": "Not found"}
         index_path = "./frontend/dist/index.html"
         if os.path.exists(index_path):
             return FileResponse(index_path)

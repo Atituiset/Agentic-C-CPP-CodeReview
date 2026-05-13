@@ -12,6 +12,7 @@ from backend.services.runner import run_orchestrator
 
 async def process_job(job_id: str):
     db = SessionLocal()
+    proc = None
     try:
         job = db.query(Job).filter(Job.id == job_id).first()
         if not job or job.status != "queued":
@@ -21,8 +22,8 @@ async def process_job(job_id: str):
         job.started_at = datetime.now(timezone.utc)
         db.commit()
 
-        # Create report directory
-        report_dir = Path("reports") / datetime.now().strftime("%Y%m%d_%H%M%S")
+        # Create report directory (absolute path so orchestrator uses same dir)
+        report_dir = Path("reports").resolve() / datetime.now().strftime("%Y%m%d_%H%M%S")
         report_dir.mkdir(parents=True, exist_ok=True)
         job.report_dir = str(report_dir)
         db.commit()
@@ -46,6 +47,17 @@ async def process_job(job_id: str):
             else:
                 job.status = "failed"
 
+        except asyncio.CancelledError:
+            # Graceful shutdown: terminate orchestrator
+            if proc is not None and proc.returncode is None:
+                proc.terminate()
+                try:
+                    await asyncio.wait_for(proc.wait(), timeout=10)
+                except asyncio.TimeoutError:
+                    proc.kill()
+            job.status = "failed"
+            db.commit()
+            raise
         except Exception as e:
             job.status = "failed"
 

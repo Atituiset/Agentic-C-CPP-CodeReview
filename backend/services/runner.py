@@ -35,7 +35,6 @@ async def run_orchestrator(
         cmd.extend(["--files"] + file_paths)
 
     cmd.extend([
-        "--debug",
         "--web-port", str(web_port),
         "-c", "3",
     ])
