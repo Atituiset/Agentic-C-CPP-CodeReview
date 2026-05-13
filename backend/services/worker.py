@@ -29,6 +29,9 @@ async def process_job(job_id: str):
         db.commit()
 
         file_paths = json.loads(job.file_paths) if job.file_paths else None
+        if file_paths:
+            job.total_files = len(file_paths)
+            db.commit()
 
         try:
             proc = await run_orchestrator(
@@ -72,21 +75,40 @@ async def process_job(job_id: str):
 
 
 def scan_reports(db, job: Job, report_dir: Path):
-    """Scan report directory and create Task records."""
+    """Scan report directory and create Task records, updating job counters."""
+    completed = 0
+    failed = 0
     for md_file in report_dir.rglob("*.md"):
         if md_file.name == "summary.md":
             continue
         relative = md_file.relative_to(report_dir)
         log_file = md_file.with_suffix(".log")
 
+        task_status = "done"
+        if log_file.exists():
+            try:
+                log_content = log_file.read_text(encoding="utf-8", errors="replace")
+                if "Status: failed" in log_content:
+                    task_status = "failed"
+            except Exception:
+                pass
+
+        if task_status == "done":
+            completed += 1
+        else:
+            failed += 1
+
         task = Task(
             job_id=job.id,
             file_path=str(relative.with_suffix("")),
-            status="done",
+            status=task_status,
             report_file=str(md_file),
             log_file=str(log_file) if log_file.exists() else None,
         )
         db.add(task)
+
+    job.completed_files = completed
+    job.failed_files = failed
     db.commit()
 
 

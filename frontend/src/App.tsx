@@ -80,6 +80,7 @@ export default function App() {
                 slot.taskId = null;
                 slot.filePath = null;
                 slot.status = 'waiting';
+                slot.logs = [];
                 setScanMetrics(m => ({ ...m, totalFiles: m.totalFiles + 1 }));
               }
             } else {
@@ -113,13 +114,18 @@ export default function App() {
     };
   }, [ansiRenderer]);
 
-  // Fetch jobs on mount
+  // Fetch jobs on mount and poll every 3s
   useEffect(() => {
-    setJobsLoading(true);
-    fetchJobs()
-      .then(data => setJobs(data))
-      .catch(err => console.error('Failed to load jobs:', err))
-      .finally(() => setJobsLoading(false));
+    const load = () => {
+      setJobsLoading(true);
+      fetchJobs()
+        .then(data => setJobs(data))
+        .catch(err => console.error('Failed to load jobs:', err))
+        .finally(() => setJobsLoading(false));
+    };
+    load();
+    const interval = setInterval(load, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleStartScan = async () => {
@@ -132,6 +138,13 @@ export default function App() {
           'src/wireless/timer_manager.c',
           'src/memory_pool.cpp',
           'src/mac/scheduler.c',
+          'src/network/tcp_handler.c',
+          'src/crypto/aes_gcm.c',
+          'src/drivers/spi_controller.c',
+          'src/utils/ring_buffer.c',
+          'src/protocol/http_parser.c',
+          'src/security/auth_manager.c',
+          'src/utils/logger.c',
         ],
       });
       // Refresh jobs list

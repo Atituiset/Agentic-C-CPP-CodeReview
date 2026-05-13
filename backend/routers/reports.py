@@ -29,7 +29,19 @@ async def list_reports(job_id: str):
                 "filename": md_file.name,
                 "path": str(md_file.relative_to(report_dir)),
                 "size": md_file.stat().st_size,
+                "type": "md",
             })
+
+        for log_file in report_dir.rglob("*.log"):
+            reports.append({
+                "filename": log_file.name,
+                "path": str(log_file.relative_to(report_dir)),
+                "size": log_file.stat().st_size,
+                "type": "log",
+            })
+
+        # Sort by path for consistent ordering
+        reports.sort(key=lambda r: r["path"])
 
         return {"job_id": job_id, "reports": reports}
     finally:
@@ -54,6 +66,7 @@ async def get_report(job_id: str, filepath: str):
         if not file_path.exists():
             raise HTTPException(status_code=404, detail="Report not found")
 
-        return FileResponse(file_path, media_type="text/markdown")
+        media_type = "text/plain" if file_path.suffix == ".log" else "text/markdown"
+        return FileResponse(file_path, media_type=media_type)
     finally:
         db.close()

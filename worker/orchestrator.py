@@ -352,10 +352,10 @@ class OpenCodeOrchestrator:
         if self.debug and httpx is not None:
             self.web_client = httpx.AsyncClient(timeout=httpx.Timeout(5.0))
 
-        # Redis 推送（如果环境变量配置了 REDIS_URL）
+        # Redis 推送（供前端 SSE 消费）
         self._redis: Optional["aioredis.Redis"] = None  # type: ignore
-        redis_url = os.environ.get("REDIS_URL")
-        if redis_url and aioredis is not None:
+        redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+        if aioredis is not None:
             try:
                 self._redis = aioredis.from_url(redis_url)
                 logger.info(f"Redis connected for slot push: {redis_url}")
@@ -839,7 +839,8 @@ class OpenCodeOrchestrator:
                 # 2. 启动 nga 子进程
                 # 每个任务使用独立的 HOME 目录，避免多个 opencode 进程并发访问
                 # 同一个 SQLite 数据库文件 (~/.local/share/opencode/opencode.db)。
-                # 但配置和缓存需要链接到用户的原始目录，否则 nga 会使用默认模型。
+                # 复制完整的 ~/.local/share/opencode/ 数据目录（含 opencode.db 默认模型配置），
+                # 同时链接 ~/.config 和 ~/.cache 保持用户设置。
                 import tempfile
                 tmp_home = tempfile.mkdtemp(prefix="opencode_")
                 original_home = Path.home()
@@ -852,22 +853,33 @@ class OpenCodeOrchestrator:
                         dst.parent.mkdir(parents=True, exist_ok=True)
                         os.symlink(src, dst)
 
-                # 创建独立的数据目录（只隔离 SQLite 数据库）
+                # 复制完整的 opencode 数据目录（含数据库、auth、快照等）
+                # 排除 log 目录（体积大且不需要）
                 local_share = Path(tmp_home) / ".local" / "share" / "opencode"
                 local_share.mkdir(parents=True, exist_ok=True)
-
-                # 复制认证信息（如有）
-                auth_src = original_home / ".local" / "share" / "opencode" / "auth.json"
-                if auth_src.exists():
-                    shutil.copy2(auth_src, local_share / "auth.json")
+                opencode_data_src = original_home / ".local" / "share" / "opencode"
+                if opencode_data_src.exists():
+                    for item in opencode_data_src.iterdir():
+                        if item.name == "log":
+                            continue
+                        dst = local_share / item.name
+                        if item.is_dir():
+                            shutil.copytree(item, dst, dirs_exist_ok=True)
+                        else:
+                            shutil.copy2(item, dst)
 
                 env = os.environ.copy()
                 env["HOME"] = tmp_home
                 env["TERM"] = "dumb"
+                # Remove OPENAI_API_KEY so opencode does not default to gpt
+                # and instead uses the deepseek key from auth.json.
+                env.pop("OPENAI_API_KEY", None)
+                nga_cmd = [self.nga_bin, "run", message]
+                model = env.get("OPENCODE_MODEL")
+                if model:
+                    nga_cmd.extend(["--model", model])
                 proc = await asyncio.create_subprocess_exec(
-                    self.nga_bin,
-                    "run",
-                    message,
+                    *nga_cmd,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                     env=env,
