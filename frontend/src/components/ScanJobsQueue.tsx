@@ -1,7 +1,11 @@
-import React from 'react';
-import { Layers } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Layers, Search, X } from 'lucide-react';
 
 export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewReports, setCurrentView }: any) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterMode, setFilterMode] = useState('all');
+
   // If scanning, show a pseudo job
   const activeJobs = isScanning ? [{ id: 'job-current', repo: 'current-workspace', branch: 'local', commit: 'HEAD', status: 'Running', time: 'Started just now', type: 'Interactive Analysis' }] : [];
 
@@ -21,6 +25,33 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
       failedFiles: j.failed_files || 0,
     }))
   ];
+
+  const filteredJobs = useMemo(() => {
+    return allJobs.filter((job: any) => {
+      const q = searchQuery.trim().toLowerCase();
+      const matchesSearch = !q ||
+        job.id.toLowerCase().includes(q) ||
+        job.repo.toLowerCase().includes(q) ||
+        job.branch.toLowerCase().includes(q) ||
+        job.commit.toLowerCase().includes(q);
+
+      const matchesStatus = filterStatus === 'all' || job.status === filterStatus;
+
+      const matchesMode = filterMode === 'all' ||
+        (filterMode === 'Full Analysis' && job.type === 'Full Analysis') ||
+        (filterMode === 'Diff Analysis' && job.type === 'Diff Analysis');
+
+      return matchesSearch && matchesStatus && matchesMode;
+    });
+  }, [allJobs, searchQuery, filterStatus, filterMode]);
+
+  const hasFilters = searchQuery || filterStatus !== 'all' || filterMode !== 'all';
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setFilterStatus('all');
+    setFilterMode('all');
+  };
 
   const renderProgress = (job: any) => {
     if (job.totalFiles <= 0) return null;
@@ -43,6 +74,8 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
     );
   };
 
+  const inputBase = 'bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-1.5 text-sm text-[#e6edf3] placeholder:text-[#484f58] focus:outline-none focus:border-[#58a6ff] focus:ring-1 focus:ring-[#58a6ff]/30 hover:border-[#8b949e]/50 transition-colors';
+
   return (
     <div className="flex flex-col h-full bg-[#06090e]">
       <header className="px-8 py-5 bg-[#0d1117] border-b border-[#30363d] flex items-center justify-between shrink-0 shadow-sm flex-wrap gap-4">
@@ -55,6 +88,63 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
       </header>
 
       <div className="flex-1 overflow-y-auto p-8 max-w-[1600px] mx-auto w-full">
+        {/* Filter Bar */}
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[200px] max-w-md">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#484f58]" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search jobs..."
+              className={`${inputBase} w-full pl-8 pr-8`}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[#484f58] hover:text-[#8b949e] transition-colors"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className={inputBase}
+          >
+            <option value="all">All Status</option>
+            <option value="Running">Running</option>
+            <option value="Completed">Completed</option>
+            <option value="Queued">Queued</option>
+            <option value="Failed">Failed</option>
+          </select>
+
+          <select
+            value={filterMode}
+            onChange={(e) => setFilterMode(e.target.value)}
+            className={inputBase}
+          >
+            <option value="all">All Modes</option>
+            <option value="Full Analysis">Full Analysis</option>
+            <option value="Diff Analysis">Diff Analysis</option>
+          </select>
+
+          {hasFilters && (
+            <button
+              onClick={clearFilters}
+              className="text-xs text-[#8b949e] hover:text-[#e6edf3] flex items-center gap-1 transition-colors"
+            >
+              <X size={12} /> Clear filters
+            </button>
+          )}
+
+          <span className="text-xs text-[#8b949e] ml-auto">
+            Showing {filteredJobs.length} of {allJobs.length} jobs
+          </span>
+        </div>
+
         <div className="bg-[#0d1117] border border-[#30363d] rounded-xl shadow-sm overflow-hidden flex flex-col h-full">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-[#8b949e] text-[11px] font-bold uppercase tracking-wider border-b border-[#30363d]">
@@ -70,7 +160,7 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
-              {allJobs.map((job) => (
+              {filteredJobs.map((job: any) => (
                 <tr key={job.id} className="hover:bg-[#161b22] transition-colors group cursor-pointer">
                   <td className="px-5 py-4 font-mono text-[#58a6ff] text-xs">
                     {job.id}
@@ -105,6 +195,13 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
                   </td>
                 </tr>
               ))}
+              {filteredJobs.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-5 py-12 text-center text-[#8b949e] text-sm">
+                    {jobsLoading ? 'Loading jobs...' : 'No jobs match your filters.'}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

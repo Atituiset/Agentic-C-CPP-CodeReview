@@ -1,8 +1,9 @@
-import React, { useEffect, useRef } from 'react';
-import { ArrowLeft, Terminal as TerminalIcon, Network } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, Terminal as TerminalIcon, Network, Copy, Check } from 'lucide-react';
 
 export default function NodeDetail({ nodeId, onBack, slots }: any) {
   const terminalRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const [copiedSlot, setCopiedSlot] = useState<number | null>(null);
 
   useEffect(() => {
     slots.forEach((_: any, i: number) => {
@@ -12,6 +13,29 @@ export default function NodeDetail({ nodeId, onBack, slots }: any) {
       }
     });
   }, [slots]);
+
+  const copySlotLogs = async (slotIndex: number) => {
+    const slot = slots[slotIndex];
+    if (!slot || slot.logs.length === 0) return;
+    const text = slot.logs.map((log: any) => log.raw).join('');
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedSlot(slotIndex);
+      setTimeout(() => setCopiedSlot(null), 1500);
+    } catch (err) {
+      // Fallback: create temporary textarea
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopiedSlot(slotIndex);
+      setTimeout(() => setCopiedSlot(null), 1500);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-[#0d1117] overflow-hidden">
@@ -51,12 +75,21 @@ export default function NodeDetail({ nodeId, onBack, slots }: any) {
                 <span className="w-2.5 h-2.5 rounded-full bg-[#f0f6fc] opacity-20 hidden lg:inline-block"></span>
                 <div className="lg:ml-2 font-mono text-[11px] text-[#8b949e] font-semibold flex items-center gap-1.5"><TerminalIcon size={12}/> SLOT_{i}</div>
               </div>
-              <div className="flex items-center text-xs">
+              <div className="flex items-center gap-2 text-xs">
                 {slot.filePath && (
                   <span className="bg-[#21262d] px-2 py-1 rounded text-[#e6edf3] truncate border border-[#30363d] max-w-[150px] text-right" title={slot.filePath}>
                     {slot.taskId && <span className="text-[#8b949e] mr-1">[{slot.taskId}]</span>}
                     {slot.filePath.split('/').pop()}
                   </span>
+                )}
+                {slot.logs.length > 0 && (
+                  <button
+                    onClick={() => copySlotLogs(i)}
+                    className="p-1 rounded hover:bg-[#30363d] text-[#8b949e] hover:text-[#e6edf3] transition-colors"
+                    title="Copy logs"
+                  >
+                    {copiedSlot === i ? <Check size={12} className="text-[#3fb950]" /> : <Copy size={12} />}
+                  </button>
                 )}
               </div>
             </div>
