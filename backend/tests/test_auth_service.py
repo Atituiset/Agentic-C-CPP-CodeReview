@@ -6,7 +6,7 @@ import pytest
 # Ensure env default before import
 os.environ.setdefault("SECRET_KEY", "test-secret")
 
-from services.auth_service import (
+from backend.services.auth_service import (
     ACCESS_TOKEN_EXPIRE_DAYS,
     ALGORITHM,
     create_access_token,
