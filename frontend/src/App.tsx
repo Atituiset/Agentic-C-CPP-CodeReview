@@ -12,6 +12,7 @@ import VulnerabilityCenter from './components/VulnerabilityCenter';
 import PersonalDashboard from './components/PersonalDashboard';
 import WorkerFleet from './components/WorkerFleet';
 import ScanJobsQueue from './components/ScanJobsQueue';
+import MemoryManager from './components/MemoryManager';
 import LoginPage from './components/LoginPage';
 import { NUM_SLOTS } from './constants';
 
@@ -44,7 +45,7 @@ export default function App() {
     return <LoginPage />;
   }
 
-  const [currentView, setCurrentView] = useState<'dashboard' | 'node' | 'fleet' | 'jobs' | 'vulnerabilities'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'node' | 'fleet' | 'jobs' | 'vulnerabilities' | 'memory'>('dashboard');
   const [appMode, setAppMode] = useState<'enterprise' | 'personal'>('enterprise');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
@@ -275,6 +276,9 @@ export default function App() {
           <button onClick={() => setCurrentView('vulnerabilities')} className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-colors cursor-pointer w-full text-left ${currentView === 'vulnerabilities' ? 'bg-[#21262d] text-[#e6edf3] border border-[#30363d]/50 shadow-sm' : 'text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#161b22]'}`}>
             <AlertTriangle size={16} className={currentView === 'vulnerabilities' ? 'text-[#58a6ff]' : ''} /> Vulnerability Center
           </button>
+          <button onClick={() => setCurrentView('memory')} className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-colors cursor-pointer w-full text-left ${currentView === 'memory' ? 'bg-[#21262d] text-[#e6edf3] border border-[#30363d]/50 shadow-sm' : 'text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#161b22]'}`}>
+            <Database size={16} className={currentView === 'memory' ? 'text-[#58a6ff]' : ''} /> Memory Manager
+          </button>
         </nav>
 
         <div className="p-5 border-t border-[#30363d]">
@@ -333,6 +337,8 @@ export default function App() {
           <WorkerFleet activeConnections={activeConnections} onNodeClick={handleNodeClick} workers={workers} workerSlots={workerSlots} />
         ) : currentView === 'jobs' ? (
           <ScanJobsQueue isScanning={isScanning} jobs={jobs} jobsLoading={jobsLoading} onViewReports={setSelectedJobId} setCurrentView={setCurrentView} workers={workers} />
+        ) : currentView === 'memory' ? (
+          <MemoryManager />
         ) : currentView === 'report' ? (
           <ReportViewer jobId={selectedJobId!} onBack={() => { setCurrentView('jobs'); setSelectedJobId(null); }} />
         ) : (
