@@ -1,11 +1,12 @@
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.database import SessionLocal
 from backend.models.schemas import JobCreate, JobResponse
-from backend.models.orm import Job
+from backend.models.orm import Job, Task
 from backend.redis_client import push_job_queue
 
 router = APIRouter()
@@ -85,3 +86,42 @@ async def get_job(job_id: str, db: Session = Depends(get_db)):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return _job_to_response(job)
+
+
+@router.post("/api/jobs/{job_id}/progress")
+async def update_job_progress(job_id: str, payload: dict, db: Session = Depends(get_db)):
+    """Orchestrator reports per-task progress during job execution."""
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    job.completed_files = payload.get("completed_files", job.completed_files)
+    job.failed_files = payload.get("failed_files", job.failed_files)
+    db.commit()
+    return {"ok": True, "job_id": job_id}
+
+
+@router.post("/api/jobs/{job_id}/complete")
+async def complete_job(job_id: str, payload: dict, db: Session = Depends(get_db)):
+    """Worker reports job completion with task results."""
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job.status = payload.get("status", "completed")
+    job.completed_at = datetime.now(timezone.utc)
+    job.completed_files = payload.get("completed_files", 0)
+    job.failed_files = payload.get("failed_files", 0)
+
+    for task_data in payload.get("tasks", []):
+        task = Task(
+            job_id=job_id,
+            file_path=task_data.get("file_path", ""),
+            worker_id=task_data.get("worker_id"),
+            status=task_data.get("status", "done"),
+            report_file=task_data.get("report_file"),
+            log_file=task_data.get("log_file"),
+        )
+        db.add(task)
+
+    db.commit()
+    return {"ok": True, "job_id": job_id}

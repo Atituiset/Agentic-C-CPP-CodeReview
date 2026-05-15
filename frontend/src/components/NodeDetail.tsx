@@ -1,9 +1,25 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Terminal as TerminalIcon, Network, Copy, Check } from 'lucide-react';
+import { NUM_SLOTS } from '../constants';
 
-export default function NodeDetail({ nodeId, onBack, slots }: any) {
+interface SlotState {
+  taskId: string | null;
+  filePath: string | null;
+  status: 'waiting' | 'running' | 'done' | 'failed';
+  logs: { id: string; html: string; raw: string }[];
+}
+
+export default function NodeDetail({ nodeId, onBack, workerSlots }: {
+  nodeId: string;
+  onBack: () => void;
+  workerSlots: Record<string, SlotState[]>;
+}) {
   const terminalRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [copiedSlot, setCopiedSlot] = useState<number | null>(null);
+
+  const slots = workerSlots[nodeId] || Array.from({ length: NUM_SLOTS }, () => ({
+    taskId: null, filePath: null, status: 'waiting', logs: []
+  }));
 
   useEffect(() => {
     slots.forEach((_: any, i: number) => {
@@ -23,7 +39,6 @@ export default function NodeDetail({ nodeId, onBack, slots }: any) {
       setCopiedSlot(slotIndex);
       setTimeout(() => setCopiedSlot(null), 1500);
     } catch (err) {
-      // Fallback: create temporary textarea
       const textarea = document.createElement('textarea');
       textarea.value = text;
       textarea.style.position = 'fixed';

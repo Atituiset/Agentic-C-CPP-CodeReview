@@ -48,6 +48,7 @@ class Task(Base):
     job_id = Column(String(36), ForeignKey("jobs.id"), nullable=False)
     file_path = Column(Text, nullable=False)
     slot_id = Column(Integer, nullable=True)
+    worker_id = Column(String(64), nullable=True)
     status = Column(
         String(16), default="pending"
     )  # pending | running | done | failed
@@ -60,3 +61,17 @@ class Task(Base):
     error_message = Column(Text, nullable=True)
 
     job = relationship("Job", back_populates="tasks")
+
+
+class Worker(Base):
+    __tablename__ = "workers"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    worker_id = Column(String(64), unique=True, nullable=False)
+    hostname = Column(String(256), nullable=True)
+    ip_address = Column(String(64), nullable=True)
+    status = Column(String(16), default="idle")
+    current_job_id = Column(String(36), nullable=True)
+    last_heartbeat = Column(DateTime(timezone=True), nullable=True)
+    registered_at = Column(DateTime(timezone=True), server_default=func.now())
+    capabilities = Column(Text, nullable=True)

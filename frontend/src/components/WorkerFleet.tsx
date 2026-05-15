@@ -1,9 +1,34 @@
 import React from 'react';
 import { Server } from 'lucide-react';
-import { NODES } from '../constants';
+import { NUM_SLOTS } from '../constants';
 
-export default function WorkerFleet({ activeConnections, onNodeClick }: any) {
-  const allNodes = NODES;
+interface SlotState {
+  taskId: string | null;
+  filePath: string | null;
+  status: 'waiting' | 'running' | 'done' | 'failed';
+  logs: { id: string; html: string; raw: string }[];
+}
+
+export default function WorkerFleet({
+  activeConnections,
+  onNodeClick,
+  workers,
+  workerSlots,
+}: {
+  activeConnections: number;
+  onNodeClick: (nodeId: string) => void;
+  workers: any[];
+  workerSlots: Record<string, SlotState[]>;
+}) {
+  // Combine local + API workers for display
+  const localSlots = workerSlots['local'] || [];
+  const localRunning = localSlots.filter((s: any) => s.status === 'running').length;
+  const localStatus = localRunning > 0 ? 'running' : 'idle';
+
+  const allWorkers = [
+    { worker_id: 'local', hostname: 'localhost', ip_address: '127.0.0.1', status: localStatus, region: 'local' },
+    ...workers.filter((w: any) => w.worker_id !== 'local'),
+  ];
 
   return (
     <div className="flex flex-col h-full bg-[#06090e]">
@@ -23,38 +48,59 @@ export default function WorkerFleet({ activeConnections, onNodeClick }: any) {
               <tr>
                 <th className="px-5 py-3">Node ID</th>
                 <th className="px-5 py-3">IP Address</th>
-                <th className="px-5 py-3">Region</th>
-                <th className="px-5 py-3">Environment</th>
+                <th className="px-5 py-3">Hostname</th>
+                <th className="px-5 py-3">Current Job</th>
                 <th className="px-5 py-3 text-center">Status</th>
+                <th className="px-5 py-3 text-center">Load</th>
                 <th className="px-5 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
-              {allNodes.map((node) => (
-                <tr key={node.id} className="hover:bg-[#161b22] transition-colors group cursor-pointer" onClick={() => onNodeClick(node.id)}>
-                  <td className="px-5 py-4 font-mono text-[#58a6ff] text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${node.state === 'active' ? 'bg-[#3fb950]' : node.state === 'idle' ? 'bg-[#d29922]' : 'bg-[#f85149]'}`}></div>
-                      {node.id}
-                    </div>
-                  </td>
-                  <td className="px-5 py-4 text-[#e6edf3] text-xs font-mono">{node.ip}</td>
-                  <td className="px-5 py-4 text-[#8b949e] text-xs">{node.region}</td>
-                  <td className="px-5 py-4 text-[#8b949e] text-xs">Local Worker</td>
-                  <td className="px-5 py-4 text-center">
-                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${
-                      node.state === 'active' ? 'text-[#3fb950] bg-[#3fb950]/10 border-[#3fb950]/20' :
-                      node.state === 'idle' ? 'text-[#d29922] bg-[#d29922]/10 border-[#d29922]/20' :
-                      'text-[#f85149] bg-[#f85149]/10 border-[#f85149]/20'
-                    }`}>{node.state}</span>
-                  </td>
-                  <td className="px-5 py-4 text-right text-xs">
-                    <span className="text-[#58a6ff] hover:text-[#79c0ff] opacity-0 group-hover:opacity-100 transition-opacity">Inspect →</span>
-                  </td>
-                </tr>
-              ))}
+              {allWorkers.map((node: any) => {
+                const slots = workerSlots[node.worker_id] || [];
+                const runningSlots = slots.filter((s: any) => s.status === 'running').length;
+                const loadPct = Math.round((runningSlots / NUM_SLOTS) * 100);
+                const state = node.status === 'running' ? 'active' : node.status === 'idle' ? 'idle' : 'offline';
+
+                return (
+                  <tr key={node.worker_id} className="hover:bg-[#161b22] transition-colors group cursor-pointer" onClick={() => onNodeClick(node.worker_id)}>
+                    <td className="px-5 py-4 font-mono text-[#58a6ff] text-xs">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${state === 'active' ? 'bg-[#3fb950]' : state === 'idle' ? 'bg-[#d29922]' : 'bg-[#f85149]'}`}></div>
+                        {node.worker_id}
+                      </div>
+                    </td>
+                    <td className="px-5 py-4 text-[#e6edf3] text-xs font-mono">{node.ip_address || '127.0.0.1'}</td>
+                    <td className="px-5 py-4 text-[#8b949e] text-xs">{node.hostname || 'localhost'}</td>
+                    <td className="px-5 py-4 text-[#8b949e] text-xs font-mono">{node.current_job_id ? node.current_job_id.slice(0, 8) : '—'}</td>
+                    <td className="px-5 py-4 text-center">
+                      <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${
+                        state === 'active' ? 'text-[#3fb950] bg-[#3fb950]/10 border-[#3fb950]/20' :
+                        state === 'idle' ? 'text-[#d29922] bg-[#d29922]/10 border-[#d29922]/20' :
+                        'text-[#f85149] bg-[#f85149]/10 border-[#f85149]/20'
+                      }`}>{state}</span>
+                    </td>
+                    <td className="px-5 py-4 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-16 bg-[#010409] h-1.5 rounded-full overflow-hidden border border-[#30363d]">
+                          <div className="bg-[#58a6ff] h-full transition-all duration-300" style={{ width: `${loadPct}%` }}></div>
+                        </div>
+                        <span className="text-[10px] text-[#8b949e] tabular-nums">{loadPct}%</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4 text-right text-xs">
+                      <span className="text-[#58a6ff] hover:text-[#79c0ff] opacity-0 group-hover:opacity-100 transition-opacity">Inspect →</span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
+          {allWorkers.length === 0 && (
+            <div className="flex-1 flex items-center justify-center text-[#8b949e] text-sm py-12">
+              No workers registered.
+            </div>
+          )}
         </div>
       </div>
     </div>

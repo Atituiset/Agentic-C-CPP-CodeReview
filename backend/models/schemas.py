@@ -33,6 +33,7 @@ class TaskResponse(BaseModel):
     job_id: str
     file_path: str
     slot_id: Optional[int] = None
+    worker_id: Optional[str] = None
     status: str
     report_file: Optional[str] = None
     log_file: Optional[str] = None
@@ -42,6 +43,31 @@ class TaskResponse(BaseModel):
     return_code: Optional[int] = None
     error_message: Optional[str] = None
 
+    model_config = ConfigDict(from_attributes=True)
+
+
+# Worker schemas
+class WorkerRegister(BaseModel):
+    hostname: Optional[str] = None
+    ip_address: Optional[str] = None
+    capabilities: Optional[dict] = None
+
+
+class WorkerHeartbeat(BaseModel):
+    status: str = "idle"
+    current_job_id: Optional[str] = None
+
+
+class WorkerResponse(BaseModel):
+    id: str
+    worker_id: str
+    hostname: Optional[str] = None
+    ip_address: Optional[str] = None
+    status: str
+    current_job_id: Optional[str] = None
+    last_heartbeat: Optional[datetime] = None
+    registered_at: Optional[datetime] = None
+    capabilities: Optional[dict] = None
     model_config = ConfigDict(from_attributes=True)
 
 
