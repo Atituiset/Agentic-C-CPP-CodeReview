@@ -121,3 +121,28 @@ class MeResponse(BaseModel):
     role: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class VulnerabilityResponse(BaseModel):
+    id: str
+    job_id: str
+    task_id: Optional[str] = None
+    worker_id: Optional[str] = None
+    vuln_id: str
+    file_path: str
+    line_start: Optional[int] = None
+    line_end: Optional[int] = None
+    severity: str
+    vuln_type: str
+    title: str
+    description: Optional[str] = None
+    raw_json: Optional[str] = None
+    status: str
+    generated_at: Optional[datetime] = None
+    accepted_at: Optional[datetime] = None
+    accepted_by: Optional[str] = None
+    rejected_at: Optional[datetime] = None
+    rejected_by: Optional[str] = None
+    assigned_to: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
