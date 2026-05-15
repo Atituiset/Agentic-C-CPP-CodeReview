@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { AnsiUp } from 'ansi_up';
 import { fetchJobs, createJob, fetchWorkers } from './hooks/useApi';
+import { useAuth } from './context/AuthContext';
 import ReportViewer from './components/ReportViewer';
 import DashboardMain from './components/DashboardMain';
 import NodeDetail from './components/NodeDetail';
@@ -11,6 +12,7 @@ import VulnerabilityCenter from './components/VulnerabilityCenter';
 import PersonalDashboard from './components/PersonalDashboard';
 import WorkerFleet from './components/WorkerFleet';
 import ScanJobsQueue from './components/ScanJobsQueue';
+import LoginPage from './components/LoginPage';
 import { NUM_SLOTS } from './constants';
 
 interface SlotState {
@@ -25,6 +27,23 @@ function createEmptySlots(): SlotState[] {
 }
 
 export default function App() {
+  const { user, isLoading: authLoading } = useAuth();
+
+  if (authLoading) {
+    return (
+      <div className="flex h-screen bg-[#06090e] text-[#c9d1d9] font-sans items-center justify-center">
+        <div className="text-center">
+          <Activity className="animate-spin mx-auto mb-4 text-[#1f6feb]" size={32} />
+          <p className="text-sm text-[#8b949e]">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginPage />;
+  }
+
   const [currentView, setCurrentView] = useState<'dashboard' | 'node' | 'fleet' | 'jobs' | 'vulnerabilities'>('dashboard');
   const [appMode, setAppMode] = useState<'enterprise' | 'personal'>('enterprise');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
