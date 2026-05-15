@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
 interface User {
-  id: number;
+  id: string;
   username: string;
   display_name: string;
   role: string;
@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (!res.ok) throw new Error("Login failed");
     const data = await res.json();
-    const newToken = data.token;
+    const newToken = data.access_token;
     localStorage.setItem("token", newToken);
     const me = await fetchMe(newToken);
     setUser(me);
