@@ -84,3 +84,40 @@ class SlotPushPayload(BaseModel):
 class SlotStatusPayload(BaseModel):
     status: str
     duration: Optional[float] = 0.0
+
+
+# Auth schemas
+class UserCreate(BaseModel):
+    username: str = Field(min_length=1, max_length=128)
+    display_name: Optional[str] = Field(default=None, max_length=256)
+    password: str = Field(min_length=1)
+    role: str = Field(pattern="^(admin|committer|user)$")
+
+
+class UserResponse(BaseModel):
+    id: str
+    username: str
+    display_name: Optional[str] = None
+    role: str
+    created_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LoginPayload(BaseModel):
+    username: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+class MeResponse(BaseModel):
+    id: str
+    username: str
+    display_name: Optional[str] = None
+    role: str
+
+    model_config = ConfigDict(from_attributes=True)
