@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 
 from backend.database import engine, Base
 from backend.redis_client import get_redis, close_redis
-from backend.routers import jobs, sse, slots, reports, workers, auth, users, vulnerabilities
+from backend.routers import jobs, sse, slots, reports, workers, auth, users, vulnerabilities, memory
 from backend.services.worker import worker_loop
 
 
@@ -68,6 +68,7 @@ app.include_router(workers.router)
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(vulnerabilities.router)
+app.include_router(memory.router)
 
 
 @app.get("/health")
