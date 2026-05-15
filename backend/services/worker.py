@@ -5,9 +5,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from backend.database import SessionLocal
-from backend.models.orm import Job, Task
+from backend.models.orm import Job, Task, Vulnerability
 from backend.redis_client import pop_job_queue
 from backend.services.runner import run_orchestrator
+from backend.services.report_parser import parse_vulnerability_report
 
 
 async def process_job(job_id: str):
@@ -69,6 +70,7 @@ async def process_job(job_id: str):
 
         # Scan report directory for generated files
         scan_reports(db, job, report_dir)
+        scan_vulnerabilities(db, job, report_dir)
 
     finally:
         db.close()
@@ -110,6 +112,36 @@ def scan_reports(db, job: Job, report_dir: Path):
 
     job.completed_files = completed
     job.failed_files = failed
+    db.commit()
+
+
+def scan_vulnerabilities(db, job: Job, report_dir: Path):
+    """Read each .md report file, parse vulnerabilities, and insert records."""
+    for md_file in report_dir.rglob("*.md"):
+        if md_file.name == "summary.md":
+            continue
+        try:
+            markdown = md_file.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            continue
+
+        records = parse_vulnerability_report(markdown, job_id=job.id)
+        for record in records:
+            vuln = Vulnerability(
+                job_id=record["job_id"],
+                task_id=record.get("task_id"),
+                worker_id=record.get("worker_id"),
+                vuln_id=record["vuln_id"],
+                file_path=record["file_path"],
+                line_start=record.get("line_start"),
+                line_end=record.get("line_end"),
+                severity=record["severity"],
+                vuln_type=record["vuln_type"],
+                title=record["title"],
+                description=record.get("description"),
+                raw_json=record.get("raw_json"),
+            )
+            db.add(vuln)
     db.commit()
 
 

@@ -64,7 +64,7 @@ def require_role(*roles: str):
             )
         return user
 
-    return Depends(checker)
+    return checker
 
 
 @router.post("/api/auth/login", response_model=LoginResponse)

@@ -7,6 +7,7 @@ from backend.database import SessionLocal
 from backend.models.orm import User
 from backend.models.schemas import UserCreate, UserResponse
 from backend.routers.auth import require_role
+from fastapi import Depends
 
 router = APIRouter()
 
@@ -22,7 +23,7 @@ def get_db():
 @router.get("/api/users", response_model=List[UserResponse])
 def list_users(
     db: Session = Depends(get_db),
-    _: User = require_role("admin"),
+    _: User = Depends(require_role("admin")),
 ):
     return db.query(User).all()
 
@@ -31,7 +32,7 @@ def list_users(
 def create_user(
     payload: UserCreate,
     db: Session = Depends(get_db),
-    _: User = require_role("admin"),
+    _: User = Depends(require_role("admin")),
 ):
     existing = db.query(User).filter(User.username == payload.username).first()
     if existing:
@@ -57,7 +58,7 @@ def create_user(
 def delete_user(
     user_id: str,
     db: Session = Depends(get_db),
-    current_user: User = require_role("admin"),
+    current_user: User = Depends(require_role("admin")),
 ):
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
