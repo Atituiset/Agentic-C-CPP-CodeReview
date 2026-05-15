@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 
 from backend.database import engine, Base
 from backend.redis_client import get_redis, close_redis
-from backend.routers import jobs, sse, slots, reports, workers, auth
+from backend.routers import jobs, sse, slots, reports, workers, auth, users
 from backend.services.worker import worker_loop
 
 
@@ -22,6 +22,26 @@ async def lifespan(app: FastAPI):
     os.makedirs(PROJECT_ROOT / "data", exist_ok=True)
     os.makedirs(PROJECT_ROOT / "reports", exist_ok=True)
     Base.metadata.create_all(bind=engine)
+
+    # Seed default admin if no users exist
+    from backend.database import SessionLocal
+    from backend.models.orm import User as UserModel
+    from backend.services.auth_service import hash_password
+
+    db = SessionLocal()
+    try:
+        if db.query(UserModel).count() == 0:
+            admin = UserModel(
+                username="admin",
+                display_name="Administrator",
+                password_hash=hash_password("admin123"),
+                role="admin",
+            )
+            db.add(admin)
+            db.commit()
+    finally:
+        db.close()
+
     await get_redis()
 
     # Start background worker
@@ -46,6 +66,7 @@ app.include_router(slots.router)
 app.include_router(reports.router)
 app.include_router(workers.router)
 app.include_router(auth.router)
+app.include_router(users.router)
 
 
 @app.get("/health")
