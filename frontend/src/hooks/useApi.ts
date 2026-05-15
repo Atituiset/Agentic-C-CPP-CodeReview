@@ -32,3 +32,9 @@ export async function fetchReportFile(jobId: string, filename: string) {
   if (!res.ok) throw new Error(`Failed to fetch report: ${res.status}`);
   return res.text();
 }
+
+export async function fetchWorkers() {
+  const res = await fetch(`${API_BASE}/api/workers`);
+  if (!res.ok) throw new Error(`Failed to fetch workers: ${res.status}`);
+  return res.json();
+}

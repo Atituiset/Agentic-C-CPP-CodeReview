@@ -1,13 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { Layers, Search, X } from 'lucide-react';
 
-export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewReports, setCurrentView }: any) {
+export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewReports, setCurrentView, workers }: any) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterMode, setFilterMode] = useState('all');
 
   // If scanning, show a pseudo job
-  const activeJobs = isScanning ? [{ id: 'job-current', repo: 'current-workspace', branch: 'local', commit: 'HEAD', status: 'Running', time: 'Started just now', type: 'Interactive Analysis' }] : [];
+  const activeJobs = isScanning ? [{ id: 'job-current', repo: 'current-workspace', branch: 'local', commit: 'HEAD', status: 'Running', time: 'Started just now', type: 'Interactive Analysis', workerId: 'local' }] : [];
 
   const allJobs = [
     ...activeJobs,
@@ -23,6 +23,7 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
       totalFiles: j.total_files || 0,
       completedFiles: j.completed_files || 0,
       failedFiles: j.failed_files || 0,
+      workerId: j.worker_id || 'local',
     }))
   ];
 
@@ -153,6 +154,7 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
                 <th className="px-5 py-3">Repository</th>
                 <th className="px-5 py-3">Branch / Commit</th>
                 <th className="px-5 py-3">Job Type</th>
+                <th className="px-5 py-3">Worker</th>
                 <th className="px-5 py-3 text-center">Progress</th>
                 <th className="px-5 py-3 text-right">Timing</th>
                 <th className="px-5 py-3 text-center">Status</th>
@@ -171,6 +173,9 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
                     {job.commit}
                   </td>
                   <td className="px-5 py-4 text-[#c9d1d9] text-xs">{job.type}</td>
+                  <td className="px-5 py-4 font-mono text-xs text-[#8b949e]">
+                    <span className="bg-[#21262d] px-1.5 py-0.5 rounded text-[#58a6ff]">{job.workerId}</span>
+                  </td>
                   <td className="px-5 py-4 text-center">
                     {renderProgress(job)}
                   </td>
@@ -197,7 +202,7 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
               ))}
               {filteredJobs.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-5 py-12 text-center text-[#8b949e] text-sm">
+                  <td colSpan={9} className="px-5 py-12 text-center text-[#8b949e] text-sm">
                     {jobsLoading ? 'Loading jobs...' : 'No jobs match your filters.'}
                   </td>
                 </tr>

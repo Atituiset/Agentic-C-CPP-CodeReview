@@ -101,6 +101,7 @@ def scan_reports(db, job: Job, report_dir: Path):
         task = Task(
             job_id=job.id,
             file_path=str(relative.with_suffix("")),
+            worker_id="local",
             status=task_status,
             report_file=str(md_file),
             log_file=str(log_file) if log_file.exists() else None,

@@ -352,6 +352,14 @@ class OpenCodeOrchestrator:
         if self.debug and httpx is not None:
             self.web_client = httpx.AsyncClient(timeout=httpx.Timeout(5.0))
 
+        # HTTP client for reporting progress to backend
+        self._http_client: Optional["httpx.AsyncClient"] = None  # type: ignore
+        self._job_id: Optional[str] = os.environ.get("JOB_ID")
+        self._backend_url: Optional[str] = os.environ.get("BACKEND_URL")
+        if self._job_id and self._backend_url and httpx is not None:
+            self._http_client = httpx.AsyncClient(timeout=httpx.Timeout(10.0))
+            logger.info(f"Progress reporting enabled: {self._backend_url}/api/jobs/{self._job_id}/progress")
+
         # Redis 推送（供前端 SSE 消费）
         self._redis: Optional["aioredis.Redis"] = None  # type: ignore
         redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
@@ -446,26 +454,12 @@ class OpenCodeOrchestrator:
     # ------------------------------------------------------------------
 
     async def _web_acquire(self, slot_id: int, task_id: str, file_path: str):
-        if self.web_client is None:
-            return
-        try:
-            await self.web_client.post(
-                f"http://localhost:{self.web_port}/api/slot/{slot_id}/acquire",
-                json={"task_id": task_id, "file_path": file_path},
-            )
-        except Exception as e:
-            logger.debug(f"Web acquire failed: {e}")
+        """Disabled: use _redis_push only to avoid duplicate messages."""
+        pass
 
     async def _web_push(self, slot_id: int, log_type: str, content: str):
-        if self.web_client is None:
-            return
-        try:
-            await self.web_client.post(
-                f"http://localhost:{self.web_port}/api/slot/{slot_id}/push",
-                json={"log_type": log_type, "content": content},
-            )
-        except Exception as e:
-            logger.debug(f"Web push failed: {e}")
+        """Disabled: use _redis_push only to avoid duplicate messages."""
+        pass
 
     async def _redis_push(self, slot_id: int, data: dict):
         """推送 slot 事件到 Redis（供前端 SSE 消费）。"""
@@ -473,30 +467,35 @@ class OpenCodeOrchestrator:
             return
         try:
             import json
-            await self._redis.publish(f"slot:{slot_id}:logs", json.dumps(data))
+            worker_id = os.environ.get("WORKER_ID", "local")
+            if worker_id == "local":
+                # Local worker: publish to legacy channel only
+                await self._redis.publish(f"slot:{slot_id}:logs", json.dumps(data))
+            else:
+                # External worker: publish to worker-specific channel only
+                await self._redis.publish(f"slot:{worker_id}:{slot_id}:logs", json.dumps(data))
         except Exception as e:
             logger.debug(f"Redis push failed: {e}")
 
     async def _web_status(self, slot_id: int, status: str, duration: float = 0.0):
-        if self.web_client is None:
+        """Disabled: use _redis_push only to avoid duplicate messages."""
+        pass
+
+    async def _report_progress(self, completed: int, failed: int):
+        """Report task completion progress to backend via HTTP."""
+        if self._http_client is None or not self._job_id or not self._backend_url:
             return
         try:
-            await self.web_client.post(
-                f"http://localhost:{self.web_port}/api/slot/{slot_id}/status",
-                json={"status": status, "duration": duration},
+            await self._http_client.post(
+                f"{self._backend_url}/api/jobs/{self._job_id}/progress",
+                json={"completed_files": completed, "failed_files": failed},
             )
         except Exception as e:
-            logger.debug(f"Web status failed: {e}")
+            logger.debug(f"Progress report failed: {e}")
 
     async def _web_release(self, slot_id: int):
-        if self.web_client is None:
-            return
-        try:
-            await self.web_client.post(
-                f"http://localhost:{self.web_port}/api/slot/{slot_id}/release",
-            )
-        except Exception as e:
-            logger.debug(f"Web release failed: {e}")
+        """Disabled: use _redis_push only to avoid duplicate messages."""
+        pass
 
     # ------------------------------------------------------------------
     #  路径计算
@@ -705,6 +704,11 @@ class OpenCodeOrchestrator:
         if self._redis is not None:
             await self._redis.aclose()
 
+        # 关闭 HTTP client
+        if self._http_client is not None:
+            await self._http_client.aclose()
+            self._http_client = None
+
     def _build_diff_scan_cmd(self, task: ScanTask) -> str:
         """Diff 模式下构造审查提示词，指引 nga 读取 diff 文件并审查"""
         message = (
@@ -878,6 +882,8 @@ class OpenCodeOrchestrator:
                 model = env.get("OPENCODE_MODEL")
                 if model:
                     nga_cmd.extend(["--model", model])
+                # Enable thinking output so agent reasoning is streamed to the UI
+                nga_cmd.append("--thinking")
                 proc = await asyncio.create_subprocess_exec(
                     *nga_cmd,
                     stdout=asyncio.subprocess.PIPE,
@@ -1021,6 +1027,9 @@ class OpenCodeOrchestrator:
 
                 tracker.complete_task(success=(task.status == "done"))
 
+                # Report progress to backend
+                await self._report_progress(tracker.completed, tracker.failed)
+
                 # 通知 web server 和 Redis 任务状态变更
                 await self._web_status(slot_id, task.status, task.duration)
                 await self._redis_push(slot_id, {"type": "meta", "event": "status", "status": task.status, "duration": task.duration})
@@ -1058,6 +1067,9 @@ class OpenCodeOrchestrator:
                 except Exception:
                     pass
                 tracker.complete_task(success=False)
+
+                # Report progress to backend
+                await self._report_progress(tracker.completed, tracker.failed)
 
                 # 通知 web server 和 Redis 异常状态
                 await self._web_status(slot_id, "failed", 0.0)

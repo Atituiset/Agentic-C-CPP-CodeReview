@@ -102,6 +102,9 @@ async def run_orchestrator(
 
     env = os.environ.copy()
     env["REPORT_DIR"] = report_dir
+    env["WORKER_ID"] = "local"
+    env["JOB_ID"] = job_id
+    env["BACKEND_URL"] = os.environ.get("BACKEND_URL", "http://localhost:8000")
     model = detect_default_model()
     if model:
         env["OPENCODE_MODEL"] = model

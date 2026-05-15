@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Activity, ShieldCheck, Database, Server, Network, Globe, Layers, AlertTriangle
 } from 'lucide-react';
 import { AnsiUp } from 'ansi_up';
-import { fetchJobs, createJob } from './hooks/useApi';
+import { fetchJobs, createJob, fetchWorkers } from './hooks/useApi';
 import ReportViewer from './components/ReportViewer';
 import DashboardMain from './components/DashboardMain';
 import NodeDetail from './components/NodeDetail';
@@ -20,21 +20,28 @@ interface SlotState {
   logs: { id: string; html: string; raw: string }[];
 }
 
+function createEmptySlots(): SlotState[] {
+  return Array.from({ length: NUM_SLOTS }, () => ({ taskId: null, filePath: null, status: 'waiting', logs: [] }));
+}
+
 export default function App() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'node' | 'fleet' | 'jobs' | 'vulnerabilities'>('dashboard');
   const [appMode, setAppMode] = useState<'enterprise' | 'personal'>('enterprise');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
   const [isScanning, setIsScanning] = useState(false);
-  const [slots, setSlots] = useState<SlotState[]>(
-    Array.from({ length: NUM_SLOTS }, () => ({ taskId: null, filePath: null, status: 'waiting', logs: [] }))
-  );
+  const [workerSlots, setWorkerSlots] = useState<Record<string, SlotState[]>>({
+    local: createEmptySlots(),
+  });
+  const [workers, setWorkers] = useState<any[]>([]);
   const [activeConnections, setActiveConnections] = useState(0);
   const [uptime, setUptime] = useState(0);
   const [scanMetrics, setScanMetrics] = useState({ totalFiles: 0, sastFindings: 0, llmFindings: 0 });
   const [jobs, setJobs] = useState<any[]>([]);
   const [jobsLoading, setJobsLoading] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+
+  const workerEventSources = useRef<Record<string, EventSource[]>>({});
 
   const [ansiRenderer] = useState(() => {
     const au = new AnsiUp();
@@ -47,26 +54,30 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
+  // Helper: create SSE connections for a worker
+  const connectWorkerSSE = (workerId: string, urlPrefix: string) => {
+    if (workerEventSources.current[workerId]) return; // Already connected
+
+    const sources: EventSource[] = [];
     let connectedCount = 0;
-    const eventSources: EventSource[] = [];
 
     for (let slotId = 0; slotId < NUM_SLOTS; slotId++) {
-      const es = new EventSource(`/api/sse/${slotId}`);
-      eventSources.push(es);
+      const es = new EventSource(`${urlPrefix}/${slotId}`);
+      sources.push(es);
 
       es.onopen = () => {
         connectedCount++;
-        setActiveConnections(connectedCount);
+        setActiveConnections(prev => prev + 1);
       };
 
       es.onmessage = (e) => {
         try {
           const msg = JSON.parse(e.data);
 
-          setSlots(current => {
-            const newSlots = [...current];
-            const slot = { ...newSlots[slotId] };
+          setWorkerSlots(current => {
+            const newMap = { ...current };
+            const slots = [...(newMap[workerId] || createEmptySlots())];
+            const slot = { ...slots[slotId] };
 
             if (msg.type === 'meta') {
               if (msg.event === 'acquire') {
@@ -92,26 +103,82 @@ export default function App() {
                 };
                 slot.logs = [...slot.logs, logEntry];
 
-                 if (msg.content.includes('[Semgrep] Local engine matched')) {
-                     setScanMetrics(m => ({ ...m, sastFindings: m.sastFindings + 1 }));
-                 }
-                 if (msg.content.includes('NGA Analysis:')) {
-                     setScanMetrics(m => ({ ...m, llmFindings: m.llmFindings + 1 }));
-                 }
+                if (msg.content.includes('[Semgrep] Local engine matched')) {
+                  setScanMetrics(m => ({ ...m, sastFindings: m.sastFindings + 1 }));
+                }
+                if (msg.content.includes('NGA Analysis:')) {
+                  setScanMetrics(m => ({ ...m, llmFindings: m.llmFindings + 1 }));
+                }
               }
             }
 
-            newSlots[slotId] = slot;
-            return newSlots;
+            slots[slotId] = slot;
+            newMap[workerId] = slots;
+            return newMap;
           });
         } catch (err) {}
       };
+
       es.onerror = () => {};
     }
 
+    workerEventSources.current[workerId] = sources;
+  };
+
+  // Helper: disconnect SSE for a worker
+  const disconnectWorkerSSE = (workerId: string) => {
+    const sources = workerEventSources.current[workerId];
+    if (!sources) return;
+    sources.forEach(es => es.close());
+    delete workerEventSources.current[workerId];
+    setActiveConnections(prev => Math.max(0, prev - NUM_SLOTS));
+  };
+
+  // Legacy SSE for local worker (backward compatible)
+  useEffect(() => {
+    connectWorkerSSE('local', '/api/sse');
     return () => {
-      eventSources.forEach(es => es.close());
+      disconnectWorkerSSE('local');
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ansiRenderer]);
+
+  // Fetch workers and connect per-worker SSE
+  useEffect(() => {
+    const loadWorkers = () => {
+      fetchWorkers()
+        .then(data => {
+          setWorkers(data);
+          // Ensure slot state exists for each worker
+          setWorkerSlots(current => {
+            const newMap = { ...current };
+            data.forEach((w: any) => {
+              if (!newMap[w.worker_id]) {
+                newMap[w.worker_id] = createEmptySlots();
+              }
+            });
+            return newMap;
+          });
+          // Connect SSE for each external worker
+          data.forEach((w: any) => {
+            if (w.worker_id !== 'local') {
+              connectWorkerSSE(w.worker_id, `/api/sse/${w.worker_id}`);
+            }
+          });
+          // Disconnect SSE for workers that are gone
+          Object.keys(workerEventSources.current).forEach(id => {
+            if (id !== 'local' && !data.find((w: any) => w.worker_id === id)) {
+              disconnectWorkerSSE(id);
+            }
+          });
+        })
+        .catch(err => console.error('Failed to load workers:', err));
+    };
+
+    loadWorkers();
+    const interval = setInterval(loadWorkers, 5000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ansiRenderer]);
 
   // Fetch jobs on mount and poll every 3s
@@ -147,7 +214,6 @@ export default function App() {
           'src/utils/logger.c',
         ],
       });
-      // Refresh jobs list
       const updated = await fetchJobs();
       setJobs(updated);
     } catch (err) {
@@ -202,7 +268,7 @@ export default function App() {
             <div className="bg-[#161b22] rounded-lg p-4 border border-[#30363d] shadow-sm">
                <div className="text-xs text-[#8b949e] mb-3 font-semibold uppercase tracking-wider">Fleet Utilization</div>
                <div className="flex items-end gap-2 mb-2">
-                 <span className="text-2xl font-bold text-[#e6edf3]">{((activeConnections / NUM_SLOTS) * 100).toFixed(0)}%</span>
+                 <span className="text-2xl font-bold text-[#e6edf3]">{((activeConnections / (Math.max(1, Object.keys(workerSlots).length) * NUM_SLOTS)) * 100).toFixed(0)}%</span>
                  <span className="text-xs text-[#8b949e] mb-1">allocated</span>
                </div>
                <div className="w-full bg-[#06090e] h-2 rounded-full overflow-hidden border border-[#30363d]">
@@ -216,7 +282,7 @@ export default function App() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#06090e]">
         {currentView === 'vulnerabilities' ? (
-          <VulnerabilityCenter />
+          <VulnerabilityCenter workers={workers} jobs={jobs} />
         ) : currentView === 'dashboard' ? (
           appMode === 'enterprise' ? (
             <DashboardMain
@@ -225,14 +291,16 @@ export default function App() {
               scanMetrics={scanMetrics}
               activeConnections={activeConnections}
               onNodeClick={handleNodeClick}
-              slots={slots}
+              workers={workers}
+              workerSlots={workerSlots}
             />
           ) : (
             <PersonalDashboard
               isScanning={isScanning}
               handleStartScan={handleStartScan}
               scanMetrics={scanMetrics}
-              slots={slots}
+              workers={workers}
+              workerSlots={workerSlots}
               onNodeClick={handleNodeClick}
             />
           )
@@ -240,12 +308,12 @@ export default function App() {
           <NodeDetail
             nodeId={selectedNodeId!}
             onBack={() => { setCurrentView('dashboard'); setSelectedNodeId(null); }}
-            slots={slots}
+            workerSlots={workerSlots}
           />
         ) : currentView === 'fleet' ? (
-          <WorkerFleet activeConnections={activeConnections} onNodeClick={handleNodeClick} />
+          <WorkerFleet activeConnections={activeConnections} onNodeClick={handleNodeClick} workers={workers} workerSlots={workerSlots} />
         ) : currentView === 'jobs' ? (
-          <ScanJobsQueue isScanning={isScanning} jobs={jobs} jobsLoading={jobsLoading} onViewReports={setSelectedJobId} setCurrentView={setCurrentView} />
+          <ScanJobsQueue isScanning={isScanning} jobs={jobs} jobsLoading={jobsLoading} onViewReports={setSelectedJobId} setCurrentView={setCurrentView} workers={workers} />
         ) : currentView === 'report' ? (
           <ReportViewer jobId={selectedJobId!} onBack={() => { setCurrentView('jobs'); setSelectedJobId(null); }} />
         ) : (
