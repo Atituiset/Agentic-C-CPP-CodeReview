@@ -101,6 +101,47 @@ def approve_memory_rule(
     return rule
 
 
+@router.post("/api/memory-rules/{rule_id}/submit-global")
+def submit_memory_rule_global(
+    rule_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Submit a personal memory rule for global approval."""
+    rule = db.query(MemoryRule).filter(MemoryRule.id == rule_id).first()
+    if not rule:
+        raise HTTPException(status_code=404, detail="Memory rule not found")
+
+    if rule.scope != "personal" or rule.owner_id != user.id:
+        raise HTTPException(status_code=403, detail="Can only submit your own personal rules")
+
+    # Check if already submitted
+    existing = db.query(MemoryRule).filter(
+        MemoryRule.scope == "global",
+        MemoryRule.title == rule.title,
+        MemoryRule.created_by == user.id,
+    ).first()
+    if existing:
+        return {"ok": True, "message": "Already submitted", "global_rule": existing}
+
+    global_rule = MemoryRule(
+        rule_type=rule.rule_type,
+        scope="global",
+        owner_id=None,
+        file_pattern=rule.file_pattern,
+        code_pattern=rule.code_pattern,
+        vuln_type_filter=rule.vuln_type_filter,
+        title=rule.title,
+        description=rule.description,
+        is_active=False,
+        created_by=user.id,
+    )
+    db.add(global_rule)
+    db.commit()
+    db.refresh(global_rule)
+    return {"ok": True, "global_rule": global_rule}
+
+
 @router.delete("/api/memory-rules/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_memory_rule(
     rule_id: str,

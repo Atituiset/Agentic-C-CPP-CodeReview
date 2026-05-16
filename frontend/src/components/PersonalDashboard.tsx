@@ -9,6 +9,7 @@ export default function PersonalDashboard({
   workers,
   workerSlots,
   onNodeClick,
+  onUpdateWorkerShowThinking,
 }: {
   isScanning: boolean;
   handleStartScan: () => void;
@@ -16,14 +17,16 @@ export default function PersonalDashboard({
   workers: any[];
   workerSlots: Record<string, any>;
   onNodeClick: (nodeId: string) => void;
+  onUpdateWorkerShowThinking?: (workerId: string, show: boolean) => void;
 }) {
   // Combine local + API workers for display
   const localSlots = workerSlots['local'] || [];
   const localRunning = localSlots.filter((s: any) => s.status === 'running').length;
   const localStatus = localRunning > 0 ? 'running' : 'idle';
 
+  const incomingLocal = workers.find((w: any) => w.worker_id === 'local');
   const allWorkers = [
-    { worker_id: 'local', hostname: 'localhost', ip_address: '127.0.0.1', status: localStatus },
+    incomingLocal || { worker_id: 'local', hostname: 'localhost', ip_address: '127.0.0.1', status: localStatus },
     ...workers.filter((w: any) => w.worker_id !== 'local'),
   ];
 
@@ -107,10 +110,26 @@ export default function PersonalDashboard({
                           <div className={`w-2.5 h-2.5 rounded-full ${state === 'active' ? 'bg-[#3fb950] ' + (isPulse ? 'animate-pulse' : '') : 'bg-[#d29922]'}`}></div>
                           <span className="font-mono text-[13px] font-bold text-[#e6edf3] group-hover:text-[#58a6ff] transition-colors">{node.worker_id}</span>
                         </div>
-                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${
-                          state === 'active' ? 'text-[#3fb950] bg-[#3fb950]/10 border-[#3fb950]/20' :
-                          'text-[#d29922] bg-[#d29922]/10 border-[#d29922]/20'
-                        }`}>{state}</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const current = node.show_thinking !== false;
+                              onUpdateWorkerShowThinking?.(node.worker_id, !current);
+                            }}
+                            className="flex items-center gap-1 text-[10px] text-[#8b949e] hover:text-[#e6edf3] transition-colors"
+                            title="Toggle thinking logs"
+                          >
+                            <span className="hidden sm:inline">Thinking</span>
+                            <span className={`w-7 h-4 rounded-full inline-block relative transition-colors ${node.show_thinking !== false ? 'bg-[#238636]' : 'bg-[#30363d]'}`}>
+                              <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${node.show_thinking !== false ? 'translate-x-3' : 'translate-x-0'}`} />
+                            </span>
+                          </button>
+                          <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${
+                            state === 'active' ? 'text-[#3fb950] bg-[#3fb950]/10 border-[#3fb950]/20' :
+                            'text-[#d29922] bg-[#d29922]/10 border-[#d29922]/20'
+                          }`}>{state}</span>
+                        </div>
                       </div>
 
                       <div className="space-y-2 text-xs">

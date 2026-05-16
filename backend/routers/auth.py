@@ -86,4 +86,16 @@ def me(user: User = Depends(get_current_user)):
         username=user.username,
         display_name=user.display_name,
         role=user.role,
+        show_thinking=user.show_thinking,
     )
+
+
+@router.put("/api/auth/me/show-thinking")
+def update_show_thinking(
+    show_thinking: bool,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user.show_thinking = show_thinking
+    db.commit()
+    return {"show_thinking": user.show_thinking}

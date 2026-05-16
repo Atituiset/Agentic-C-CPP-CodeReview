@@ -14,19 +14,22 @@ export default function WorkerFleet({
   onNodeClick,
   workers,
   workerSlots,
+  onUpdateWorkerShowThinking,
 }: {
   activeConnections: number;
   onNodeClick: (nodeId: string) => void;
   workers: any[];
   workerSlots: Record<string, SlotState[]>;
+  onUpdateWorkerShowThinking?: (workerId: string, show: boolean) => void;
 }) {
   // Combine local + API workers for display
   const localSlots = workerSlots['local'] || [];
   const localRunning = localSlots.filter((s: any) => s.status === 'running').length;
   const localStatus = localRunning > 0 ? 'running' : 'idle';
 
+  const incomingLocal = workers.find((w: any) => w.worker_id === 'local');
   const allWorkers = [
-    { worker_id: 'local', hostname: 'localhost', ip_address: '127.0.0.1', status: localStatus, region: 'local' },
+    incomingLocal || { worker_id: 'local', hostname: 'localhost', ip_address: '127.0.0.1', status: localStatus, region: 'local' },
     ...workers.filter((w: any) => w.worker_id !== 'local'),
   ];
 
@@ -88,8 +91,24 @@ export default function WorkerFleet({
                         <span className="text-[10px] text-[#8b949e] tabular-nums">{loadPct}%</span>
                       </div>
                     </td>
-                    <td className="px-5 py-4 text-right text-xs">
-                      <span className="text-[#58a6ff] hover:text-[#79c0ff] opacity-0 group-hover:opacity-100 transition-opacity">Inspect →</span>
+                    <td className="px-5 py-4 text-right">
+                      <div className="flex items-center justify-end gap-3">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const current = node.show_thinking !== false;
+                            onUpdateWorkerShowThinking?.(node.worker_id, !current);
+                          }}
+                          className="flex items-center gap-1.5 text-[10px] text-[#8b949e] hover:text-[#e6edf3] transition-colors"
+                          title="Toggle thinking logs"
+                        >
+                          <span className="hidden sm:inline">Thinking</span>
+                          <span className={`w-7 h-4 rounded-full inline-block relative transition-colors ${node.show_thinking !== false ? 'bg-[#238636]' : 'bg-[#30363d]'}`}>
+                            <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${node.show_thinking !== false ? 'translate-x-3' : 'translate-x-0'}`} />
+                          </span>
+                        </button>
+                        <span className="text-[#58a6ff] hover:text-[#79c0ff] opacity-0 group-hover:opacity-100 transition-opacity text-xs">Inspect →</span>
+                      </div>
                     </td>
                   </tr>
                 );

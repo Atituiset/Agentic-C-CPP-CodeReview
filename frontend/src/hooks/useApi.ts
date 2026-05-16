@@ -109,6 +109,15 @@ export async function approveMemoryRule(id: string) {
   return res.json();
 }
 
+export async function submitMemoryRuleForGlobal(id: string) {
+  const res = await fetch(`${API_BASE}/api/memory-rules/${id}/submit-global`, {
+    method: "POST",
+    headers: getHeaders(),
+  });
+  if (!res.ok) throw new Error(`Failed to submit rule for global: ${res.status}`);
+  return res.json();
+}
+
 export async function fetchUsers() {
   const res = await fetch(`${API_BASE}/api/users`, { headers: getHeaders() });
   if (!res.ok) throw new Error(`Failed to fetch users: ${res.status}`);
@@ -136,4 +145,22 @@ export async function deleteUser(id: string) {
     headers: getHeaders(),
   });
   if (!res.ok) throw new Error(`Failed to delete user: ${res.status}`);
+}
+
+export async function updateUserShowThinking(show_thinking: boolean) {
+  const res = await fetch(`${API_BASE}/api/auth/me/show-thinking?show_thinking=${show_thinking}`, {
+    method: "PUT",
+    headers: getHeaders(),
+  });
+  if (!res.ok) throw new Error(`Failed to update show thinking: ${res.status}`);
+  return res.json();
+}
+
+export async function updateWorkerShowThinking(worker_id: string, show_thinking: boolean) {
+  const res = await fetch(`${API_BASE}/api/workers/${worker_id}/show-thinking?show_thinking=${show_thinking}`, {
+    method: "PUT",
+    headers: getHeaders(),
+  });
+  if (!res.ok) throw new Error(`Failed to update worker show thinking: ${res.status}`);
+  return res.json();
 }

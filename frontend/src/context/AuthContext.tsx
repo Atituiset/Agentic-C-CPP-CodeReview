@@ -5,6 +5,7 @@ interface User {
   username: string;
   display_name: string;
   role: string;
+  show_thinking: boolean;
 }
 
 interface AuthState {
@@ -16,6 +17,7 @@ interface AuthState {
 interface AuthContextValue extends AuthState {
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
+  updateShowThinking: (show: boolean) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -67,6 +69,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(newToken);
   }
 
+  async function updateShowThinking(show: boolean) {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    const res = await fetch(`${API_BASE}/api/auth/me/show-thinking?show_thinking=${show}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error("Failed to update setting");
+    if (user) {
+      setUser({ ...user, show_thinking: show });
+    }
+  }
+
   function logout() {
     localStorage.removeItem("token");
     setUser(null);
@@ -74,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, logout, updateShowThinking }}>
       {children}
     </AuthContext.Provider>
   );

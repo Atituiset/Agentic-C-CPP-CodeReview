@@ -30,6 +30,7 @@ def _worker_to_dict(worker: Worker) -> dict:
         "last_heartbeat": worker.last_heartbeat,
         "registered_at": worker.registered_at,
         "capabilities": json.loads(worker.capabilities) if worker.capabilities else None,
+        "show_thinking": worker.show_thinking,
     }
 
 
@@ -91,3 +92,19 @@ async def get_worker(worker_id: str, db: Session = Depends(get_db)):
     if not worker:
         raise HTTPException(status_code=404, detail="Worker not found")
     return WorkerResponse.model_validate(_worker_to_dict(worker))
+
+
+@router.put("/api/workers/{worker_id}/show-thinking")
+async def update_worker_show_thinking(
+    worker_id: str,
+    show_thinking: bool,
+    db: Session = Depends(get_db),
+):
+    """Update a worker's show_thinking setting."""
+    worker = db.query(Worker).filter(Worker.worker_id == worker_id).first()
+    if not worker:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    worker.show_thinking = show_thinking
+    db.commit()
+    db.refresh(worker)
+    return {"show_thinking": worker.show_thinking}
