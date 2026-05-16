@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Database, Globe, User, Plus, X, Loader2, Trash2, CheckCircle, Clock, ShieldCheck } from 'lucide-react';
-import { fetchMemoryRules, createMemoryRule, deleteMemoryRule, approveMemoryRule } from '../hooks/useApi';
+import { Database, Globe, User, Plus, X, Loader2, Trash2, CheckCircle, Clock, ShieldCheck, ArrowUpCircle } from 'lucide-react';
+import { fetchMemoryRules, createMemoryRule, deleteMemoryRule, approveMemoryRule, submitMemoryRuleForGlobal } from '../hooks/useApi';
 import { useAuth } from '../context/AuthContext';
 
 interface MemoryRule {
@@ -25,7 +25,8 @@ export default function MemoryManager() {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'global' | 'personal'>('global');
+  const isCommitter = user?.role === 'committer' || user?.role === 'admin';
+  const [activeTab, setActiveTab] = useState<'global' | 'personal'>(isCommitter ? 'global' : 'personal');
   const [showForm, setShowForm] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
@@ -35,8 +36,6 @@ export default function MemoryManager() {
   const [formVulnTypeFilter, setFormVulnTypeFilter] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formSubmitting, setFormSubmitting] = useState(false);
-
-  const isCommitter = user?.role === 'committer' || user?.role === 'admin';
 
   const loadRules = async () => {
     setLoading(true);
@@ -55,9 +54,24 @@ export default function MemoryManager() {
     loadRules();
   }, []);
 
+  // For regular users: only show their personal rules
   const filteredRules = useMemo(() => {
-    return rules.filter((r) => r.scope === activeTab);
-  }, [rules, activeTab]);
+    if (isCommitter) {
+      return rules.filter((r) => r.scope === activeTab);
+    }
+    return rules.filter((r) => r.scope === 'personal' && r.created_by === user?.id);
+  }, [rules, activeTab, isCommitter, user]);
+
+  // Track which personal rules have been submitted for global approval
+  const globalizedTitles = useMemo(() => {
+    const titles = new Set<string>();
+    rules.forEach((r) => {
+      if (r.scope === 'global' && r.created_by === user?.id) {
+        titles.add(r.title);
+      }
+    });
+    return titles;
+  }, [rules, user]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,7 +85,7 @@ export default function MemoryManager() {
         file_pattern: formFilePattern.trim() || undefined,
         vuln_type_filter: formVulnTypeFilter.trim() || undefined,
         description: formDescription.trim() || undefined,
-        scope: activeTab,
+        scope: isCommitter ? activeTab : 'personal',
       } as any);
       setFormTitle('');
       setFormRuleType('positive');
@@ -95,6 +109,19 @@ export default function MemoryManager() {
       await loadRules();
     } catch (err: any) {
       setError(err.message || 'Failed to approve memory rule');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleSubmitForGlobal = async (id: string) => {
+    if (isCommitter) return;
+    setActionLoading(id + ':submit-global');
+    try {
+      await submitMemoryRuleForGlobal(id);
+      await loadRules();
+    } catch (err: any) {
+      setError(err.message || 'Failed to submit rule for global approval');
     } finally {
       setActionLoading(null);
     }
@@ -144,31 +171,39 @@ export default function MemoryManager() {
       </header>
 
       <div className="flex-1 overflow-y-auto p-8 max-w-[1600px] mx-auto w-full">
-        {/* Tabs */}
-        <div className="flex items-center gap-2 mb-6">
-          <button
-            onClick={() => { setActiveTab('global'); setShowForm(false); setDeleteConfirmId(null); }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === 'global'
-                ? 'bg-[#21262d] text-[#e6edf3] border border-[#30363d]/50 shadow-sm'
-                : 'text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#161b22]'
-            }`}
-          >
-            <Globe size={16} className={activeTab === 'global' ? 'text-[#58a6ff]' : ''} />
-            Global
-          </button>
-          <button
-            onClick={() => { setActiveTab('personal'); setShowForm(false); setDeleteConfirmId(null); }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === 'personal'
-                ? 'bg-[#21262d] text-[#e6edf3] border border-[#30363d]/50 shadow-sm'
-                : 'text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#161b22]'
-            }`}
-          >
-            <User size={16} className={activeTab === 'personal' ? 'text-[#58a6ff]' : ''} />
-            Personal
-          </button>
-        </div>
+        {/* Tabs — only for committer/admin */}
+        {isCommitter && (
+          <div className="flex items-center gap-2 mb-6">
+            <button
+              onClick={() => { setActiveTab('global'); setShowForm(false); setDeleteConfirmId(null); }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'global'
+                  ? 'bg-[#21262d] text-[#e6edf3] border border-[#30363d]/50 shadow-sm'
+                  : 'text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#161b22]'
+              }`}
+            >
+              <Globe size={16} className={activeTab === 'global' ? 'text-[#58a6ff]' : ''} />
+              Global
+            </button>
+            <button
+              onClick={() => { setActiveTab('personal'); setShowForm(false); setDeleteConfirmId(null); }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'personal'
+                  ? 'bg-[#21262d] text-[#e6edf3] border border-[#30363d]/50 shadow-sm'
+                  : 'text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#161b22]'
+              }`}
+            >
+              <User size={16} className={activeTab === 'personal' ? 'text-[#58a6ff]' : ''} />
+              Personal
+            </button>
+          </div>
+        )}
+
+        {!isCommitter && (
+          <div className="mb-6 text-sm text-[#8b949e]">
+            <p>Your personal memory rules. Submit a rule for global approval to share it with the team.</p>
+          </div>
+        )}
 
         {error && (
           <div className="mb-4 px-4 py-3 bg-[#f85149]/10 border border-[#f85149]/20 rounded-md text-sm text-[#f85149]">
@@ -181,7 +216,7 @@ export default function MemoryManager() {
           <div className="mb-6 bg-[#0d1117] border border-[#30363d] rounded-xl shadow-sm p-6">
             <h2 className="text-sm font-semibold text-[#e6edf3] mb-4 flex items-center gap-2">
               <Plus size={16} className="text-[#58a6ff]" />
-              Create {activeTab === 'global' ? 'Global' : 'Personal'} Rule
+              Create {isCommitter && activeTab === 'global' ? 'Global' : 'Personal'} Rule
             </h2>
             <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
@@ -343,10 +378,16 @@ export default function MemoryManager() {
                         {formatTimestamp(rule.approved_at)}
                       </span>
                     )}
+                    {!isCommitter && globalizedTitles.has(rule.title) && (
+                      <span className="flex items-center gap-1 text-[#58a6ff]">
+                        <Globe size={12} />
+                        Globalized
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {activeTab === 'global' && rule.status === 'pending' && isCommitter && (
+                    {isCommitter && activeTab === 'global' && rule.status === 'pending' && (
                       <button
                         onClick={() => handleApprove(rule.id)}
                         disabled={actionLoading === rule.id + ':approve'}
@@ -359,6 +400,22 @@ export default function MemoryManager() {
                           <CheckCircle size={12} />
                         )}
                         Approve
+                      </button>
+                    )}
+
+                    {!isCommitter && !globalizedTitles.has(rule.title) && (
+                      <button
+                        onClick={() => handleSubmitForGlobal(rule.id)}
+                        disabled={actionLoading === rule.id + ':submit-global'}
+                        title="Submit for Global Approval"
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded bg-[#58a6ff]/10 border border-[#58a6ff]/20 text-[#58a6ff] hover:bg-[#58a6ff]/20 transition-colors disabled:opacity-50 text-xs font-medium"
+                      >
+                        {actionLoading === rule.id + ':submit-global' ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <ArrowUpCircle size={12} />
+                        )}
+                        Submit Global
                       </button>
                     )}
 

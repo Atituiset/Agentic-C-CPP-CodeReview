@@ -76,6 +76,7 @@ class Worker(Base):
     last_heartbeat = Column(DateTime(timezone=True), nullable=True)
     registered_at = Column(DateTime(timezone=True), server_default=func.now())
     capabilities = Column(Text, nullable=True)
+    show_thinking = Column(Boolean, default=True)
 
 
 class User(Base):
@@ -86,6 +87,7 @@ class User(Base):
     display_name = Column(String(256), nullable=True)
     password_hash = Column(String(256), nullable=False)
     role = Column(String(16), nullable=False)  # admin | committer | user
+    show_thinking = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     created_by = Column(String(36), ForeignKey("users.id"), nullable=True)
 

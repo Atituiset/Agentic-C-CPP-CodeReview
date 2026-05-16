@@ -68,6 +68,7 @@ class WorkerResponse(BaseModel):
     last_heartbeat: Optional[datetime] = None
     registered_at: Optional[datetime] = None
     capabilities: Optional[dict] = None
+    show_thinking: bool = True
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -99,6 +100,7 @@ class UserResponse(BaseModel):
     username: str
     display_name: Optional[str] = None
     role: str
+    show_thinking: bool = True
     created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -119,6 +121,7 @@ class MeResponse(BaseModel):
     username: str
     display_name: Optional[str] = None
     role: str
+    show_thinking: bool = True
 
     model_config = ConfigDict(from_attributes=True)
 

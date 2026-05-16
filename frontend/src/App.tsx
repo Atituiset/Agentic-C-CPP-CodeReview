@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Activity, ShieldCheck, Database, Server, Network, Globe, Layers, AlertTriangle, Users
+  Activity, ShieldCheck, Database, Server, Network, Globe, Layers, AlertTriangle, Users, LogOut
 } from 'lucide-react';
 import { AnsiUp } from 'ansi_up';
-import { fetchJobs, createJob, fetchWorkers } from './hooks/useApi';
+import { fetchJobs, createJob, fetchWorkers, updateWorkerShowThinking } from './hooks/useApi';
 import { useAuth } from './context/AuthContext';
 import ReportViewer from './components/ReportViewer';
 import DashboardMain from './components/DashboardMain';
@@ -28,26 +28,26 @@ function createEmptySlots(): SlotState[] {
   return Array.from({ length: NUM_SLOTS }, () => ({ taskId: null, filePath: null, status: 'waiting', logs: [] }));
 }
 
-export default function App() {
-  const { user, isLoading: authLoading } = useAuth();
+interface User {
+  id: string;
+  username: string;
+  display_name: string;
+  role: string;
+  show_thinking: boolean;
+}
 
-  if (authLoading) {
-    return (
-      <div className="flex h-screen bg-[#06090e] text-[#c9d1d9] font-sans items-center justify-center">
-        <div className="text-center">
-          <Activity className="animate-spin mx-auto mb-4 text-[#1f6feb]" size={32} />
-          <p className="text-sm text-[#8b949e]">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <LoginPage />;
-  }
-
+function AppContent({
+  user,
+  updateShowThinking,
+  logout,
+}: {
+  user: User;
+  updateShowThinking: (show: boolean) => Promise<void>;
+  logout: () => void;
+}) {
+  const isAdmin = user.role === 'admin';
   const [currentView, setCurrentView] = useState<'dashboard' | 'node' | 'fleet' | 'jobs' | 'vulnerabilities' | 'memory' | 'users'>('dashboard');
-  const [appMode, setAppMode] = useState<'enterprise' | 'personal'>('enterprise');
+  const [appMode, setAppMode] = useState<'enterprise' | 'personal'>(isAdmin ? 'enterprise' : 'personal');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
   const [isScanning, setIsScanning] = useState(false);
@@ -55,6 +55,7 @@ export default function App() {
     local: createEmptySlots(),
   });
   const [workers, setWorkers] = useState<any[]>([]);
+  const [localWorkerShowThinking, setLocalWorkerShowThinking] = useState(true);
   const [activeConnections, setActiveConnections] = useState(0);
   const [uptime, setUptime] = useState(0);
   const [scanMetrics, setScanMetrics] = useState({ totalFiles: 0, sastFindings: 0, llmFindings: 0 });
@@ -75,9 +76,25 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Helper: create SSE connections for a worker
+  // Build unified workers list including local with its frontend-managed show_thinking
+  const allWorkers = [
+    { worker_id: 'local', hostname: 'localhost', ip_address: '127.0.0.1', status: 'idle', show_thinking: localWorkerShowThinking },
+    ...workers.filter((w: any) => w.worker_id !== 'local'),
+  ];
+
+  const shouldShowThinking = (workerId: string) => {
+    if (!user?.show_thinking) return false;
+    const w = allWorkers.find((w: any) => w.worker_id === workerId);
+    if (w && w.show_thinking === false) return false;
+    return true;
+  };
+
+  const isThinkingLog = (content: string) => {
+    return content.includes('Thinking:') || content.includes('Thinking ');
+  };
+
   const connectWorkerSSE = (workerId: string, urlPrefix: string) => {
-    if (workerEventSources.current[workerId]) return; // Already connected
+    if (workerEventSources.current[workerId]) return;
 
     const sources: EventSource[] = [];
     let connectedCount = 0;
@@ -117,18 +134,23 @@ export default function App() {
               }
             } else {
               if (msg.content) {
-                const logEntry = {
-                  id: Math.random().toString(36).substr(2, 9),
-                  raw: msg.content,
-                  html: ansiRenderer.ansi_to_html(msg.content)
-                };
-                slot.logs = [...slot.logs, logEntry];
+                const thinking = isThinkingLog(msg.content);
+                if (thinking && !shouldShowThinking(workerId)) {
+                  // Skip thinking log
+                } else {
+                  const logEntry = {
+                    id: Math.random().toString(36).substr(2, 9),
+                    raw: msg.content,
+                    html: ansiRenderer.ansi_to_html(msg.content)
+                  };
+                  slot.logs = [...slot.logs, logEntry];
 
-                if (msg.content.includes('[Semgrep] Local engine matched')) {
-                  setScanMetrics(m => ({ ...m, sastFindings: m.sastFindings + 1 }));
-                }
-                if (msg.content.includes('NGA Analysis:')) {
-                  setScanMetrics(m => ({ ...m, llmFindings: m.llmFindings + 1 }));
+                  if (msg.content.includes('[Semgrep] Local engine matched')) {
+                    setScanMetrics(m => ({ ...m, sastFindings: m.sastFindings + 1 }));
+                  }
+                  if (msg.content.includes('NGA Analysis:')) {
+                    setScanMetrics(m => ({ ...m, llmFindings: m.llmFindings + 1 }));
+                  }
                 }
               }
             }
@@ -146,7 +168,6 @@ export default function App() {
     workerEventSources.current[workerId] = sources;
   };
 
-  // Helper: disconnect SSE for a worker
   const disconnectWorkerSSE = (workerId: string) => {
     const sources = workerEventSources.current[workerId];
     if (!sources) return;
@@ -155,7 +176,6 @@ export default function App() {
     setActiveConnections(prev => Math.max(0, prev - NUM_SLOTS));
   };
 
-  // Legacy SSE for local worker (backward compatible)
   useEffect(() => {
     connectWorkerSSE('local', '/api/sse');
     return () => {
@@ -164,13 +184,11 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ansiRenderer]);
 
-  // Fetch workers and connect per-worker SSE
   useEffect(() => {
     const loadWorkers = () => {
       fetchWorkers()
         .then(data => {
           setWorkers(data);
-          // Ensure slot state exists for each worker
           setWorkerSlots(current => {
             const newMap = { ...current };
             data.forEach((w: any) => {
@@ -180,13 +198,11 @@ export default function App() {
             });
             return newMap;
           });
-          // Connect SSE for each external worker
           data.forEach((w: any) => {
             if (w.worker_id !== 'local') {
               connectWorkerSSE(w.worker_id, `/api/sse/${w.worker_id}`);
             }
           });
-          // Disconnect SSE for workers that are gone
           Object.keys(workerEventSources.current).forEach(id => {
             if (id !== 'local' && !data.find((w: any) => w.worker_id === id)) {
               disconnectWorkerSSE(id);
@@ -202,7 +218,6 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ansiRenderer]);
 
-  // Fetch jobs on mount and poll every 3s
   useEffect(() => {
     const load = () => {
       setJobsLoading(true);
@@ -264,9 +279,9 @@ export default function App() {
 
         <nav className="flex-1 py-6 flex flex-col gap-1.5 px-3">
           <button onClick={() => setCurrentView('dashboard')} className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-colors cursor-pointer w-full text-left ${currentView === 'dashboard' ? 'bg-[#21262d] text-[#e6edf3] border border-[#30363d]/50 shadow-sm' : 'text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#161b22]'}`}>
-            <Globe size={16} className={currentView === 'dashboard' ? 'text-[#58a6ff]' : ''} /> {appMode === 'enterprise' ? 'Global Dashboard' : 'Local Dashboard'}
+            <Globe size={16} className={currentView === 'dashboard' ? 'text-[#58a6ff]' : ''} /> {isAdmin && appMode === 'enterprise' ? 'Global Dashboard' : 'Local Dashboard'}
           </button>
-          {appMode === 'enterprise' && (
+          {isAdmin && appMode === 'enterprise' && (
             <button onClick={() => setCurrentView('fleet')} className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-colors cursor-pointer w-full text-left ${currentView === 'fleet' ? 'bg-[#21262d] text-[#e6edf3] border border-[#30363d]/50 shadow-sm' : 'text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#161b22]'}`}>
               <Server size={16} className={currentView === 'fleet' ? 'text-[#58a6ff]' : ''} /> Worker Fleet
             </button>
@@ -280,7 +295,7 @@ export default function App() {
           <button onClick={() => setCurrentView('memory')} className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-colors cursor-pointer w-full text-left ${currentView === 'memory' ? 'bg-[#21262d] text-[#e6edf3] border border-[#30363d]/50 shadow-sm' : 'text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#161b22]'}`}>
             <Database size={16} className={currentView === 'memory' ? 'text-[#58a6ff]' : ''} /> Memory Manager
           </button>
-          {user?.role === 'admin' && (
+          {isAdmin && appMode === 'enterprise' && (
             <button onClick={() => setCurrentView('users')} className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-colors cursor-pointer w-full text-left ${currentView === 'users' ? 'bg-[#21262d] text-[#e6edf3] border border-[#30363d]/50 shadow-sm' : 'text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#161b22]'}`}>
               <Users size={16} className={currentView === 'users' ? 'text-[#58a6ff]' : ''} /> User Management
             </button>
@@ -288,12 +303,42 @@ export default function App() {
         </nav>
 
         <div className="p-5 border-t border-[#30363d]">
-          <div className="mb-4 bg-[#161b22] rounded-lg p-1 flex border border-[#30363d]">
-            <button onClick={() => { setAppMode('personal'); setCurrentView('dashboard'); }} className={`flex-1 text-xs py-1.5 rounded-md font-medium transition-colors ${appMode === 'personal' ? 'bg-[#21262d] text-[#e6edf3] shadow-sm' : 'text-[#8b949e] hover:text-[#c9d1d9]'}`}>Personal View</button>
-            <button onClick={() => { setAppMode('enterprise'); setCurrentView('dashboard'); }} className={`flex-1 text-xs py-1.5 rounded-md font-medium transition-colors ${appMode === 'enterprise' ? 'bg-[#21262d] text-[#e6edf3] shadow-sm' : 'text-[#8b949e] hover:text-[#c9d1d9]'}`}>Fleet View</button>
+          <div className="mb-4 flex items-center gap-3 px-3 py-2 bg-[#161b22] rounded-lg border border-[#30363d]">
+            <div className="w-7 h-7 rounded-full bg-[#1f6feb] flex items-center justify-center text-white text-xs font-bold">
+              {user?.display_name?.charAt(0).toUpperCase() || user?.username?.charAt(0).toUpperCase() || 'U'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs text-[#e6edf3] font-medium truncate">{user?.display_name || user?.username || 'Unknown'}</div>
+              <div className="text-[10px] text-[#8b949e] uppercase tracking-wider">{user?.role || 'user'}</div>
+            </div>
+            <button
+              onClick={() => logout()}
+              className="text-[#8b949e] hover:text-[#f85149] transition-colors p-1 rounded hover:bg-[#30363d]/50"
+              title="Logout"
+            >
+              <LogOut size={14} />
+            </button>
           </div>
 
-          {appMode === 'enterprise' && (
+          {/* Personal Thinking Toggle */}
+          <div className="mb-4 flex items-center justify-between px-3 py-2 bg-[#161b22] rounded-lg border border-[#30363d]">
+            <span className="text-xs text-[#8b949e]">Show Thinking</span>
+            <button
+              onClick={() => user && updateShowThinking && updateShowThinking(!user.show_thinking)}
+              className={`relative w-9 h-5 rounded-full transition-colors ${user?.show_thinking ? 'bg-[#238636]' : 'bg-[#30363d]'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${user?.show_thinking ? 'translate-x-4' : 'translate-x-0'}`} />
+            </button>
+          </div>
+
+          {isAdmin && (
+            <div className="mb-4 bg-[#161b22] rounded-lg p-1 flex border border-[#30363d]">
+              <button onClick={() => { setAppMode('personal'); setCurrentView('dashboard'); }} className={`flex-1 text-xs py-1.5 rounded-md font-medium transition-colors ${appMode === 'personal' ? 'bg-[#21262d] text-[#e6edf3] shadow-sm' : 'text-[#8b949e] hover:text-[#c9d1d9]'}`}>Personal View</button>
+              <button onClick={() => { setAppMode('enterprise'); setCurrentView('dashboard'); }} className={`flex-1 text-xs py-1.5 rounded-md font-medium transition-colors ${appMode === 'enterprise' ? 'bg-[#21262d] text-[#e6edf3] shadow-sm' : 'text-[#8b949e] hover:text-[#c9d1d9]'}`}>Fleet View</button>
+            </div>
+          )}
+
+          {isAdmin && appMode === 'enterprise' && (
             <div className="bg-[#161b22] rounded-lg p-4 border border-[#30363d] shadow-sm">
                <div className="text-xs text-[#8b949e] mb-3 font-semibold uppercase tracking-wider">Fleet Utilization</div>
                <div className="flex items-end gap-2 mb-2">
@@ -328,9 +373,21 @@ export default function App() {
               isScanning={isScanning}
               handleStartScan={handleStartScan}
               scanMetrics={scanMetrics}
-              workers={workers}
+              workers={allWorkers}
               workerSlots={workerSlots}
               onNodeClick={handleNodeClick}
+              onUpdateWorkerShowThinking={async (workerId, show) => {
+                if (workerId === 'local') {
+                  setLocalWorkerShowThinking(show);
+                  return;
+                }
+                try {
+                  await updateWorkerShowThinking(workerId, show);
+                  setWorkers(current => current.map(w => w.worker_id === workerId ? { ...w, show_thinking: show } : w));
+                } catch (err) {
+                  console.error('Failed to update worker thinking setting:', err);
+                }
+              }}
             />
           )
         ) : currentView === 'node' ? (
@@ -340,7 +397,18 @@ export default function App() {
             workerSlots={workerSlots}
           />
         ) : currentView === 'fleet' ? (
-          <WorkerFleet activeConnections={activeConnections} onNodeClick={handleNodeClick} workers={workers} workerSlots={workerSlots} />
+          <WorkerFleet activeConnections={activeConnections} onNodeClick={handleNodeClick} workers={allWorkers} workerSlots={workerSlots} onUpdateWorkerShowThinking={async (workerId, show) => {
+            if (workerId === 'local') {
+              setLocalWorkerShowThinking(show);
+              return;
+            }
+            try {
+              await updateWorkerShowThinking(workerId, show);
+              setWorkers(current => current.map(w => w.worker_id === workerId ? { ...w, show_thinking: show } : w));
+            } catch (err) {
+              console.error('Failed to update worker thinking setting:', err);
+            }
+          }} />
         ) : currentView === 'jobs' ? (
           <ScanJobsQueue isScanning={isScanning} jobs={jobs} jobsLoading={jobsLoading} onViewReports={setSelectedJobId} setCurrentView={setCurrentView} workers={workers} />
         ) : currentView === 'memory' ? (
@@ -360,5 +428,32 @@ export default function App() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  const { user, isLoading: authLoading, updateShowThinking, logout } = useAuth();
+
+  if (authLoading) {
+    return (
+      <div className="flex h-screen bg-[#06090e] text-[#c9d1d9] font-sans items-center justify-center">
+        <div className="text-center">
+          <Activity className="animate-spin mx-auto mb-4 text-[#1f6feb]" size={32} />
+          <p className="text-sm text-[#8b949e]">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginPage />;
+  }
+
+  return (
+    <AppContent
+      user={user}
+      updateShowThinking={updateShowThinking}
+      logout={logout}
+    />
   );
 }

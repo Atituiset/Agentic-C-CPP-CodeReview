@@ -11,6 +11,26 @@ from backend.services.runner import run_orchestrator
 from backend.services.report_parser import parse_vulnerability_report
 
 
+async def _poll_job_progress(db, job: Job, report_dir: Path, stop_event: asyncio.Event):
+    """Periodically scan report directory and update job.completed_files."""
+    while not stop_event.is_set():
+        try:
+            # Count .md report files (excluding summary.md)
+            count = sum(
+                1 for f in report_dir.rglob("*.md")
+                if f.name != "summary.md"
+            )
+            if job.completed_files != count:
+                job.completed_files = count
+                db.commit()
+        except Exception:
+            pass
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=2.0)
+        except asyncio.TimeoutError:
+            pass
+
+
 async def process_job(job_id: str):
     db = SessionLocal()
     proc = None
@@ -33,6 +53,9 @@ async def process_job(job_id: str):
         if file_paths:
             job.total_files = len(file_paths)
             db.commit()
+
+        stop_event = asyncio.Event()
+        progress_task = asyncio.create_task(_poll_job_progress(db, job, report_dir, stop_event))
 
         try:
             proc = await run_orchestrator(
@@ -64,6 +87,12 @@ async def process_job(job_id: str):
             raise
         except Exception as e:
             job.status = "failed"
+        finally:
+            stop_event.set()
+            try:
+                await asyncio.wait_for(progress_task, timeout=5)
+            except asyncio.TimeoutError:
+                progress_task.cancel()
 
         job.completed_at = datetime.now(timezone.utc)
         db.commit()
