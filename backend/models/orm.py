@@ -23,12 +23,12 @@ class Job(Base):
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
     repo_path = Column(Text, nullable=False)
-    mode = Column(String(16), nullable=False)  # diff | files
+    mode = Column(String(16), nullable=False)  # diff | files | full
     target_commit = Column(String(64), nullable=True)
     file_paths = Column(Text, nullable=True)  # JSON array string
     status = Column(
         String(16), default="pending"
-    )  # pending | queued | running | completed | failed | cancelled
+    )  # pending | queued | running | completed | failed | cancelled | interrupted | resumed
     total_files = Column(Integer, default=0)
     completed_files = Column(Integer, default=0)
     failed_files = Column(Integer, default=0)
@@ -36,6 +36,15 @@ class Job(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     started_at = Column(DateTime(timezone=True), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)
+    cancelled_at = Column(DateTime(timezone=True), nullable=True)
+    # Checkpoint for resume: JSON {completed: [file_paths], failed: [file_paths]}
+    checkpoint_data = Column(Text, nullable=True)
+    # Git commit hash at scan start (for incremental sync)
+    base_commit = Column(String(64), nullable=True)
+    # Scan stats: JSON {total_files, added_files, modified_files, deleted_files, changed_lines}
+    scan_stats = Column(Text, nullable=True)
+    # If this job is a resume of another interrupted job
+    resumed_from_id = Column(String(36), ForeignKey("jobs.id"), nullable=True)
 
     tasks = relationship(
         "Task", back_populates="job", cascade="all, delete-orphan"
@@ -135,3 +144,49 @@ class MemoryRule(Base):
     created_by = Column(String(36), ForeignKey("users.id"), nullable=True)
     approved_at = Column(DateTime(timezone=True), nullable=True)
     approved_by = Column(String(36), ForeignKey("users.id"), nullable=True)
+
+
+class SchedulerConfig(Base):
+    """Persistent storage for APScheduler job configurations."""
+    __tablename__ = "scheduler_configs"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    job_name = Column(String(64), unique=True, nullable=False)
+    job_type = Column(String(32), nullable=False)  # scan | stop
+    cron_expression = Column(String(64), nullable=False)
+    is_enabled = Column(Boolean, default=True)
+    last_run_at = Column(DateTime(timezone=True), nullable=True)
+    next_run_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class WorkerGitStatus(Base):
+    """Per-worker node git status snapshot."""
+    __tablename__ = "worker_git_statuses"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    worker_id = Column(String(64), unique=True, nullable=False)
+    head_commit = Column(String(64), nullable=True)
+    added_files = Column(Integer, default=0)
+    modified_files = Column(Integer, default=0)
+    deleted_files = Column(Integer, default=0)
+    changed_lines = Column(Integer, default=0)
+    total_cpp_files = Column(Integer, default=0)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class WorkerScheduleConfig(Base):
+    """Per-worker scan schedule configuration (user-configurable)."""
+    __tablename__ = "worker_schedule_configs"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    worker_id = Column(String(64), unique=True, nullable=False)
+    scan_hour = Column(Integer, default=0)
+    scan_minute = Column(Integer, default=0)
+    stop_hour = Column(Integer, default=9)
+    stop_minute = Column(Integer, default=0)
+    is_enabled = Column(Boolean, default=True)
+    timezone = Column(String(32), default="Asia/Shanghai")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

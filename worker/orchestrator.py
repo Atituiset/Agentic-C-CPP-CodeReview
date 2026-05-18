@@ -323,16 +323,19 @@ class OpenCodeOrchestrator:
         session_timeout: int = 600,
         debug: bool = False,
         web_port: int = 8080,
+        resume_file: Optional[str] = None,
     ):
         self.concurrency = concurrency
         self.nga_bin = nga_bin
         self.session_timeout = session_timeout
         self.debug = debug
         self.web_port = web_port
+        self.resume_file = resume_file
 
         self.tasks: list[ScanTask] = []
         self.semaphore = asyncio.Semaphore(concurrency)
         self._shutdown = False
+        self._cancelled = False
 
         # 检查 ngaent 清理命令是否可用（用于清理 nga 残留的并发锁文件）
         self._cleanup_available = shutil.which("ngaent") is not None
@@ -530,12 +533,13 @@ class OpenCodeOrchestrator:
     #  任务初始化
     # ------------------------------------------------------------------
 
-    def setup_file_mode(self, file_paths: list[str], cared_paths: Optional[list[str]] = None):
+    def setup_file_mode(self, file_paths: list[str], cared_paths: Optional[list[str]] = None, exclude_files: Optional[list[str]] = None):
         """文件列表模式
 
         - 如果传入的是文件，直接加入任务队列
         - 如果传入的是目录，递归扫描目录下的 C/C++ 文件
         - 路径统一用相对路径（相对于当前工作目录）
+        - exclude_files: 已完成的文件列表，将被跳过
         """
         all_files: list[str] = []
         c_extensions = (".c", ".cc", ".cpp", ".h", ".hpp")
@@ -556,7 +560,13 @@ class OpenCodeOrchestrator:
 
         all_files = sorted(set(all_files))
 
+        # Filter out already completed files (resume support)
+        excluded = set(exclude_files or [])
+        skipped = 0
         for i, fp in enumerate(all_files, 1):
+            if fp in excluded:
+                skipped += 1
+                continue
             report_file, log_file = self._get_output_paths(fp, cared_paths)
             self.tasks.append(ScanTask(
                 file_path=fp,
@@ -564,7 +574,7 @@ class OpenCodeOrchestrator:
                 report_file=str(report_file),
                 log_file=str(log_file),
             ))
-        logger.info(f"File mode: {len(self.tasks)} files")
+        logger.info(f"File mode: {len(self.tasks)} files ({skipped} skipped from checkpoint)")
 
     def setup_diff_mode(self, start_commit: str, repo_path: str = ".", cared_paths: Optional[list[str]] = None):
         """Diff 模式: 提取变更文件及其 diff 内容"""
@@ -609,6 +619,46 @@ class OpenCodeOrchestrator:
                 diff_content=diff_content,
                 diff_file=diff_file,
             ))
+
+    def setup_full_mode(self, repo_path: str = ".", cared_paths: Optional[list[str]] = None, exclude_files: Optional[list[str]] = None):
+        """Full scan mode: recursively discover all C/C++ files in the repository.
+
+        Each worker node discovers its own local files independently.
+        """
+        repo = Path(repo_path).resolve()
+        self.repo_path = repo
+        logger.info(f"Full scan mode: repo={repo}")
+
+        # Import node-level git_sync for file discovery
+        from worker.git_sync import get_all_cpp_files
+
+        all_files = get_all_cpp_files(str(repo))
+        if not all_files:
+            logger.warning("No C/C++ files found in repository")
+            return
+
+        logger.info(f"Discovered {len(all_files)} C/C++ files")
+
+        # Filter by cared_paths if specified
+        if cared_paths:
+            all_files = self._filter_by_cared_paths(all_files, cared_paths)
+            logger.info(f"After cared_paths filter: {len(all_files)} files")
+
+        # Filter out already completed files (resume support)
+        excluded = set(exclude_files or [])
+        skipped = 0
+        for i, fp in enumerate(all_files, 1):
+            if fp in excluded:
+                skipped += 1
+                continue
+            report_file, log_file = self._get_output_paths(fp, cared_paths)
+            self.tasks.append(ScanTask(
+                file_path=fp,
+                task_id=f"task-{i:03d}",
+                report_file=str(report_file),
+                log_file=str(log_file),
+            ))
+        logger.info(f"Full scan: {len(self.tasks)} files ({skipped} skipped from checkpoint)")
 
     def _get_changed_files(self, repo: Path, start_commit: str) -> list[str]:
         """执行 git diff 获取变更文件列表"""
@@ -795,12 +845,28 @@ class OpenCodeOrchestrator:
         except Exception as e:
             logger.debug(f"[{task_id}] NGA slot check skipped: {e}")
 
+    def _save_checkpoint_file(self):
+        """Write checkpoint of completed/failed tasks to disk."""
+        if not self.resume_file:
+            return
+        completed = [t.file_path for t in self.tasks if t.status == "done"]
+        failed = [t.file_path for t in self.tasks if t.status == "failed"]
+        try:
+            checkpoint_path = Path(self.resume_file)
+            checkpoint_path.write_text(
+                json.dumps({"completed": completed, "failed": failed}),
+                encoding="utf-8"
+            )
+            logger.debug(f"Checkpoint saved: {len(completed)} completed, {len(failed)} failed")
+        except Exception as e:
+            logger.warning(f"Failed to save checkpoint: {e}")
+
     async def _scan_one(self, task: ScanTask, tracker: ProgressTracker):
         """扫描单个文件"""
         async with self.semaphore:
-            if self._shutdown:
+            if self._shutdown or self._cancelled:
                 logger.warning(
-                    f"[{task.task_id}] {task.file_path} | Skipped (shutdown)"
+                    f"[{task.task_id}] {task.file_path} | Skipped (shutdown/cancelled)"
                 )
                 return
 
@@ -1081,6 +1147,8 @@ class OpenCodeOrchestrator:
                 await self._redis_push(slot_id, {"type": "meta", "event": "release"})
                 await self.slot_manager.release(slot_id)
                 logger.info(f"[{task.task_id}] Released slot #{slot_id}")
+                # 保存 checkpoint after each task completes
+                self._save_checkpoint_file()
                 # 清理临时 HOME 目录
                 if "tmp_home" in locals() and tmp_home:
                     try:
@@ -1110,6 +1178,7 @@ def create_orchestrator(
     session_timeout: int = 600,
     debug: bool = False,
     web_port: int = 8080,
+    resume_file: Optional[str] = None,
 ) -> OpenCodeOrchestrator:
     """Create an orchestrator instance without CLI parsing.
 
@@ -1121,6 +1190,7 @@ def create_orchestrator(
         session_timeout=session_timeout,
         debug=debug,
         web_port=web_port,
+        resume_file=resume_file,
     )
 
 
@@ -1167,6 +1237,11 @@ def main():
         metavar="COMMIT",
         help="起始 commit hash，自动提取从该 commit 到 HEAD 的变更文件",
     )
+    group.add_argument(
+        "--full",
+        action="store_true",
+        help="全量扫描模式：递归发现仓库中所有 C/C++ 文件（每个 worker 节点独立发现）",
+    )
 
     parser.add_argument(
         "--paths",
@@ -1205,6 +1280,12 @@ def main():
         default=8080,
         help="Web 调试界面端口（默认: 8080）",
     )
+    parser.add_argument(
+        "--resume-file",
+        type=str,
+        default=None,
+        help="Checkpoint file path for resuming interrupted scans (JSON with 'completed' and 'failed' lists)",
+    )
 
     args = parser.parse_args()
 
@@ -1215,6 +1296,7 @@ def main():
         session_timeout=args.timeout,
         debug=args.debug,
         web_port=args.web_port,
+        resume_file=args.resume_file,
     )
 
     # 解析 cared_paths
@@ -1223,15 +1305,47 @@ def main():
         cared_paths = [p.strip().rstrip("/") for p in args.paths.split(",")]
         logger.info(f"Cared paths: {cared_paths}")
 
+    # 读取 checkpoint for resume (from --resume-file or RESUME_FROM_REPORT_DIR env)
+    exclude_files = None
+    if args.resume_file:
+        try:
+            checkpoint = json.loads(Path(args.resume_file).read_text(encoding="utf-8"))
+            exclude_files = checkpoint.get("completed", [])
+            logger.info(f"Resume checkpoint: {len(exclude_files)} files already completed")
+        except Exception as e:
+            logger.warning(f"Failed to read resume file: {e}")
+
+    # Also check RESUME_FROM_REPORT_DIR for node-level resume
+    resume_from_dir = os.environ.get("RESUME_FROM_REPORT_DIR")
+    if resume_from_dir and not exclude_files:
+        checkpoint_path = Path(resume_from_dir) / "checkpoint.json"
+        if checkpoint_path.exists():
+            try:
+                checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+                exclude_files = checkpoint.get("completed", [])
+                logger.info(f"Resume from previous report dir: {len(exclude_files)} files already completed")
+            except Exception as e:
+                logger.warning(f"Failed to read checkpoint from {checkpoint_path}: {e}")
+
     # 初始化任务
-    if args.diff:
+    if args.full:
+        orch.setup_full_mode(repo_path=args.repo, cared_paths=cared_paths, exclude_files=exclude_files)
+    elif args.diff:
         orch.setup_diff_mode(start_commit=args.diff, repo_path=args.repo, cared_paths=cared_paths)
     else:
-        orch.setup_file_mode(file_paths=args.files, cared_paths=cared_paths)
+        orch.setup_file_mode(file_paths=args.files, cared_paths=cared_paths, exclude_files=exclude_files)
 
     if not orch.tasks:
         logger.error("No files to scan. Exiting.")
         sys.exit(1)
+
+    # 保存 total_files for backend polling
+    report_dir = os.environ.get("REPORT_DIR", ".")
+    total_file = Path(report_dir) / "total_files.json"
+    try:
+        total_file.write_text(json.dumps({"total_files": len(orch.tasks)}), encoding="utf-8")
+    except Exception:
+        pass
 
     # 信号处理
     loop = asyncio.get_event_loop()
@@ -1239,6 +1353,20 @@ def main():
         loop.add_signal_handler(sig, lambda: setattr(orch, "_shutdown", True))
 
     asyncio.run(orch.run())
+
+    # 扫描结束后保存本地 checkpoint
+    checkpoint = {"completed": [], "failed": []}
+    for task in orch.tasks:
+        if task.status == "done":
+            checkpoint["completed"].append(task.file_path)
+        elif task.status == "failed":
+            checkpoint["failed"].append(task.file_path)
+    checkpoint_path = Path(report_dir) / "checkpoint.json"
+    try:
+        checkpoint_path.write_text(json.dumps(checkpoint), encoding="utf-8")
+        logger.info(f"Checkpoint saved: {len(checkpoint['completed'])} done, {len(checkpoint['failed'])} failed")
+    except Exception as e:
+        logger.warning(f"Failed to save checkpoint: {e}")
 
 
 if __name__ == "__main__":

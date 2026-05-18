@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -9,10 +10,13 @@ from backend.models.orm import Job, Task, Vulnerability
 from backend.redis_client import pop_job_queue
 from backend.services.runner import run_orchestrator
 from backend.services.report_parser import parse_vulnerability_report
+from backend.services.scheduler import get_scheduler
+
+logger = logging.getLogger("worker")
 
 
 async def _poll_job_progress(db, job: Job, report_dir: Path, stop_event: asyncio.Event):
-    """Periodically scan report directory and update job.completed_files."""
+    """Periodically scan report directory and update job.completed_files and total_files."""
     while not stop_event.is_set():
         try:
             # Count .md report files (excluding summary.md)
@@ -23,6 +27,18 @@ async def _poll_job_progress(db, job: Job, report_dir: Path, stop_event: asyncio
             if job.completed_files != count:
                 job.completed_files = count
                 db.commit()
+
+            # Read total_files from orchestrator's discovery output
+            total_file = report_dir / "total_files.json"
+            if total_file.exists():
+                try:
+                    data = json.loads(total_file.read_text(encoding="utf-8"))
+                    total = data.get("total_files", 0)
+                    if job.total_files != total:
+                        job.total_files = total
+                        db.commit()
+                except Exception:
+                    pass
         except Exception:
             pass
         try:
@@ -36,12 +52,16 @@ async def process_job(job_id: str):
     proc = None
     try:
         job = db.query(Job).filter(Job.id == job_id).first()
-        if not job or job.status != "queued":
+        if not job or job.status not in ("queued", "resumed"):
             return
 
         job.status = "running"
         job.started_at = datetime.now(timezone.utc)
         db.commit()
+
+        # Register with scheduler for cancel support
+        scheduler = get_scheduler()
+        scheduler.set_running_job(job_id)
 
         # Create report directory (absolute path so orchestrator uses same dir)
         report_dir = Path("reports").resolve() / datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -49,10 +69,16 @@ async def process_job(job_id: str):
         job.report_dir = str(report_dir)
         db.commit()
 
-        file_paths = json.loads(job.file_paths) if job.file_paths else None
-        if file_paths:
-            job.total_files = len(file_paths)
-            db.commit()
+        # Node-level: worker discovers files independently.
+        # Backend no longer passes file_paths; orchestrator handles discovery.
+
+        # Pass resume info via environment: if this job is resumed from a previous one,
+        # tell the orchestrator where to find the previous checkpoint.
+        env_resume_dir = None
+        if job.resumed_from_id:
+            parent_job = db.query(Job).filter(Job.id == job.resumed_from_id).first()
+            if parent_job and parent_job.report_dir:
+                env_resume_dir = parent_job.report_dir
 
         stop_event = asyncio.Event()
         progress_task = asyncio.create_task(_poll_job_progress(db, job, report_dir, stop_event))
@@ -63,16 +89,34 @@ async def process_job(job_id: str):
                 repo_path=job.repo_path,
                 mode=job.mode,
                 target_commit=job.target_commit,
-                file_paths=file_paths,
+                file_paths=None,
                 report_dir=str(report_dir),
+                resume_file=None,
+                resume_from_dir=env_resume_dir,
             )
 
-            stdout, stderr = await proc.communicate()
+            # Monitor process with periodic cancel checks
+            while proc.returncode is None:
+                try:
+                    await asyncio.wait_for(proc.wait(), timeout=2.0)
+                except asyncio.TimeoutError:
+                    if scheduler.is_cancel_requested():
+                        logger.info(f"[process_job] Cancel requested for job {job_id}, terminating orchestrator")
+                        proc.terminate()
+                        try:
+                            await asyncio.wait_for(proc.wait(), timeout=30)
+                        except asyncio.TimeoutError:
+                            proc.kill()
+                            await proc.wait()
+                        job.status = "interrupted"
+                        job.cancelled_at = datetime.now(timezone.utc)
+                        break
 
-            if proc.returncode == 0:
-                job.status = "completed"
-            else:
-                job.status = "failed"
+            if job.status != "interrupted":
+                if proc.returncode == 0:
+                    job.status = "completed"
+                else:
+                    job.status = "failed"
 
         except asyncio.CancelledError:
             # Graceful shutdown: terminate orchestrator
@@ -88,6 +132,7 @@ async def process_job(job_id: str):
         except Exception as e:
             job.status = "failed"
         finally:
+            scheduler.clear_cancel()
             stop_event.set()
             try:
                 await asyncio.wait_for(progress_task, timeout=5)
@@ -101,8 +146,47 @@ async def process_job(job_id: str):
         scan_reports(db, job, report_dir)
         scan_vulnerabilities(db, job, report_dir)
 
+        # Orchestrator saves checkpoint locally; backend reads it for display
+        _read_local_checkpoint(db, job, report_dir)
+
     finally:
         db.close()
+
+
+def _read_local_checkpoint(db, job: Job, report_dir: Path):
+    """Read checkpoint saved by orchestrator on the worker node."""
+    checkpoint_path = report_dir / "checkpoint.json"
+    if checkpoint_path.exists():
+        try:
+            checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+            job.checkpoint_data = json.dumps(checkpoint)
+            db.commit()
+            return
+        except Exception:
+            pass
+
+    # Fallback: derive from report files if orchestrator checkpoint missing
+    completed = []
+    failed = []
+    for md_file in report_dir.rglob("*.md"):
+        if md_file.name == "summary.md":
+            continue
+        relative = str(md_file.relative_to(report_dir).with_suffix(""))
+        log_file = md_file.with_suffix(".log")
+        if log_file.exists():
+            try:
+                log_content = log_file.read_text(encoding="utf-8", errors="replace")
+                if "Status: failed" in log_content:
+                    failed.append(relative)
+                else:
+                    completed.append(relative)
+            except Exception:
+                completed.append(relative)
+        else:
+            completed.append(relative)
+
+    job.checkpoint_data = json.dumps({"completed": completed, "failed": failed})
+    db.commit()
 
 
 def scan_reports(db, job: Job, report_dir: Path):

@@ -5,9 +5,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.database import SessionLocal
-from backend.models.schemas import JobCreate, JobResponse
+from backend.models.schemas import JobCreate, JobResponse, JobResumeRequest, GitSyncResponse, SchedulerStatusResponse
 from backend.models.orm import Job, Task
 from backend.redis_client import push_job_queue
+from backend.services.git_sync import get_all_cpp_files, get_head_commit, get_changes_since
+from backend.services.scheduler import get_scheduler
 
 router = APIRouter()
 
@@ -57,12 +59,44 @@ def _resolve_repo_path(repo_path: str | None) -> str:
 
 @router.post("/api/jobs", status_code=201)
 async def create_job(payload: JobCreate, db: Session = Depends(get_db)):
+    repo_path = _resolve_repo_path(payload.repo_path)
+    file_paths = payload.file_paths
+    target_commit = payload.target_commit
+    base_commit = None
+    scan_stats = None
+
+    if payload.mode == "full":
+        # Full scan: worker node discovers files independently
+        # Backend only records git stats for dashboard display
+        current_commit = get_head_commit(repo_path)
+        base_commit = current_commit
+
+        # Get incremental changes since last full scan
+        last_job = (
+            db.query(Job)
+            .filter(Job.mode == "full", Job.repo_path == repo_path)
+            .order_by(Job.created_at.desc())
+            .first()
+        )
+        prev_commit = last_job.base_commit if last_job else None
+        git_stats = get_changes_since(repo_path, prev_commit)
+        scan_stats = {
+            "total_files": 0,
+            "added_files": git_stats["added_files"],
+            "modified_files": git_stats["modified_files"],
+            "deleted_files": git_stats["deleted_files"],
+            "changed_lines": git_stats["changed_lines"],
+        }
+
     job = Job(
-        repo_path=_resolve_repo_path(payload.repo_path),
+        repo_path=repo_path,
         mode=payload.mode,
-        target_commit=payload.target_commit,
-        file_paths=json.dumps(payload.file_paths) if payload.file_paths else None,
+        target_commit=target_commit,
+        file_paths=json.dumps(file_paths) if file_paths else None,
         status="queued",
+        total_files=len(file_paths) if file_paths else 0,
+        base_commit=base_commit,
+        scan_stats=json.dumps(scan_stats) if scan_stats else None,
     )
     db.add(job)
     db.commit()
@@ -125,3 +159,97 @@ async def complete_job(job_id: str, payload: dict, db: Session = Depends(get_db)
 
     db.commit()
     return {"ok": True, "job_id": job_id}
+
+
+@router.post("/api/jobs/{job_id}/resume")
+async def resume_job(job_id: str, db: Session = Depends(get_db)):
+    """Resume an interrupted job from its checkpoint."""
+    original_job = db.query(Job).filter(Job.id == job_id).first()
+    if not original_job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if original_job.status not in ("interrupted", "failed"):
+        raise HTTPException(status_code=400, detail="Only interrupted or failed jobs can be resumed")
+
+    if not original_job.checkpoint_data:
+        raise HTTPException(status_code=400, detail="No checkpoint data available for this job")
+
+    # Create a new job that resumes from the original
+    new_job = Job(
+        repo_path=original_job.repo_path,
+        mode=original_job.mode,
+        file_paths=original_job.file_paths,
+        status="queued",
+        total_files=original_job.total_files,
+        base_commit=original_job.base_commit,
+        scan_stats=original_job.scan_stats,
+        resumed_from_id=original_job.id,
+    )
+    db.add(new_job)
+    db.commit()
+    db.refresh(new_job)
+
+    # Push to Redis queue
+    await push_job_queue(new_job.id)
+
+    return {"ok": True, "job_id": new_job.id, "resumed_from": job_id}
+
+
+@router.post("/api/jobs/{job_id}/cancel")
+async def cancel_job(job_id: str, db: Session = Depends(get_db)):
+    """Cancel a running or queued job."""
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if job.status == "running":
+        scheduler = get_scheduler()
+        scheduler.request_cancel(job_id)
+        job.status = "interrupted"
+        job.cancelled_at = datetime.now(timezone.utc)
+        db.commit()
+        return {"ok": True, "job_id": job_id, "status": "interrupted"}
+
+    elif job.status == "queued":
+        job.status = "cancelled"
+        db.commit()
+        return {"ok": True, "job_id": job_id, "status": "cancelled"}
+
+    else:
+        raise HTTPException(status_code=400, detail=f"Cannot cancel job with status '{job.status}'")
+
+
+@router.get("/api/jobs/stats/git-sync", response_model=GitSyncResponse)
+async def git_sync_stats(db: Session = Depends(get_db)):
+    """Get git changes since the last full scan."""
+    repo_path = "."
+    current_commit = get_head_commit(repo_path)
+
+    last_job = (
+        db.query(Job)
+        .filter(Job.mode == "full")
+        .order_by(Job.created_at.desc())
+        .first()
+    )
+    base_commit = last_job.base_commit if last_job else None
+
+    git_stats = get_changes_since(repo_path, base_commit)
+    total_cpp = len(get_all_cpp_files(repo_path))
+
+    return GitSyncResponse(
+        base_commit=base_commit,
+        current_commit=current_commit or "",
+        added_files=git_stats["added_files"],
+        modified_files=git_stats["modified_files"],
+        deleted_files=git_stats["deleted_files"],
+        changed_lines=git_stats["changed_lines"],
+        total_cpp_files=total_cpp,
+    )
+
+
+@router.get("/api/jobs/scheduler/status", response_model=SchedulerStatusResponse)
+async def scheduler_status(worker_id: str = ""):
+    """Get the scan scheduler status. Pass worker_id for per-worker status."""
+    scheduler = get_scheduler()
+    status = scheduler.get_status(worker_id if worker_id else None)
+    return SchedulerStatusResponse(**status)

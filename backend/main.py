@@ -10,6 +10,7 @@ from backend.database import engine, Base
 from backend.redis_client import get_redis, close_redis
 from backend.routers import jobs, sse, slots, reports, workers, auth, users, vulnerabilities, memory
 from backend.services.worker import worker_loop
+from backend.services.scheduler import get_scheduler
 
 
 # Project root relative to this file (backend/main.py -> project root)
@@ -44,6 +45,10 @@ async def lifespan(app: FastAPI):
 
     await get_redis()
 
+    # Start scheduler
+    scheduler = get_scheduler()
+    await scheduler.start()
+
     # Start background worker
     worker_task = asyncio.create_task(worker_loop())
 
@@ -55,6 +60,7 @@ async def lifespan(app: FastAPI):
         await worker_task
     except asyncio.CancelledError:
         pass
+    await scheduler.shutdown()
     await close_redis()
 
 
