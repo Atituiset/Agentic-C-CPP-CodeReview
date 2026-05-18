@@ -5,7 +5,7 @@ from typing import Optional, List
 
 class JobCreate(BaseModel):
     repo_path: str = Field(default=".")
-    mode: str = Field(pattern="^(diff|files)$")
+    mode: str = Field(pattern="^(diff|files|full)$")
     target_commit: Optional[str] = None
     file_paths: Optional[List[str]] = None
 
@@ -56,6 +56,13 @@ class WorkerRegister(BaseModel):
 class WorkerHeartbeat(BaseModel):
     status: str = "idle"
     current_job_id: Optional[str] = None
+    # Node-level git stats (optional, reported by worker)
+    head_commit: Optional[str] = None
+    added_files: int = 0
+    modified_files: int = 0
+    deleted_files: int = 0
+    changed_lines: int = 0
+    total_cpp_files: int = 0
 
 
 class WorkerResponse(BaseModel):
@@ -149,3 +156,62 @@ class VulnerabilityResponse(BaseModel):
     assigned_to: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class JobResumeRequest(BaseModel):
+    resume_from_job_id: str
+
+
+class GitSyncResponse(BaseModel):
+    base_commit: Optional[str] = None
+    current_commit: str
+    added_files: int = 0
+    modified_files: int = 0
+    deleted_files: int = 0
+    changed_lines: int = 0
+    total_cpp_files: int = 0
+
+
+class SchedulerStatusResponse(BaseModel):
+    is_enabled: bool = True
+    next_scan_time: Optional[str] = None
+    next_stop_time: Optional[str] = None
+    last_scan_time: Optional[str] = None
+    last_stop_time: Optional[str] = None
+    is_running: bool = False
+    # Per-worker fields
+    scan_hour: Optional[int] = None
+    scan_minute: Optional[int] = None
+    stop_hour: Optional[int] = None
+    stop_minute: Optional[int] = None
+    timezone: Optional[str] = None
+
+
+class WorkerGitStatusResponse(BaseModel):
+    worker_id: str
+    head_commit: Optional[str] = None
+    added_files: int = 0
+    modified_files: int = 0
+    deleted_files: int = 0
+    changed_lines: int = 0
+    total_cpp_files: int = 0
+    updated_at: Optional[datetime] = None
+
+
+class WorkerScheduleConfigResponse(BaseModel):
+    worker_id: str
+    scan_hour: int = 0
+    scan_minute: int = 0
+    stop_hour: int = 9
+    stop_minute: int = 0
+    is_enabled: bool = True
+    timezone: str = "Asia/Shanghai"
+
+
+class WorkerScheduleConfigUpdate(BaseModel):
+    scan_hour: Optional[int] = None
+    scan_minute: Optional[int] = None
+    stop_hour: Optional[int] = None
+    stop_minute: Optional[int] = None
+    is_enabled: Optional[bool] = None
+    timezone: Optional[str] = None

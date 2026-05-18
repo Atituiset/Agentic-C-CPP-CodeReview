@@ -1,10 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { Layers, Search, X } from 'lucide-react';
+import { Layers, Search, X, Play, Pause, RotateCcw } from 'lucide-react';
+import { resumeJob, cancelJob } from '../hooks/useApi';
 
 export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewReports, setCurrentView, workers }: any) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterMode, setFilterMode] = useState('all');
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // If scanning, show a pseudo job
   const activeJobs = isScanning ? [{ id: 'job-current', repo: 'current-workspace', branch: 'local', commit: 'HEAD', status: 'Running', time: 'Started just now', type: 'Interactive Analysis', workerId: 'local' }] : [];
@@ -17,13 +19,15 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
       branch: j.mode,
       commit: j.target_commit || 'HEAD',
       status: j.status.charAt(0).toUpperCase() + j.status.slice(1),
+      rawStatus: j.status,
       time: j.created_at ? `Created ${new Date(j.created_at).toLocaleString()}` : '',
-      type: j.mode === 'diff' ? 'Diff Analysis' : 'Full Analysis',
+      type: j.mode === 'diff' ? 'Diff Analysis' : j.mode === 'full' ? 'Full Scan' : 'File Analysis',
       rawId: j.id,
       totalFiles: j.total_files || 0,
       completedFiles: j.completed_files || 0,
       failedFiles: j.failed_files || 0,
       workerId: j.worker_id || 'local',
+      resumedFrom: j.resumed_from_id,
     }))
   ];
 
@@ -39,8 +43,9 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
       const matchesStatus = filterStatus === 'all' || job.status === filterStatus;
 
       const matchesMode = filterMode === 'all' ||
-        (filterMode === 'Full Analysis' && job.type === 'Full Analysis') ||
-        (filterMode === 'Diff Analysis' && job.type === 'Diff Analysis');
+        (filterMode === 'Full Scan' && job.type === 'Full Scan') ||
+        (filterMode === 'Diff Analysis' && job.type === 'Diff Analysis') ||
+        (filterMode === 'File Analysis' && job.type === 'File Analysis');
 
       return matchesSearch && matchesStatus && matchesMode;
     });
@@ -52,6 +57,28 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
     setSearchQuery('');
     setFilterStatus('all');
     setFilterMode('all');
+  };
+
+  const handleResume = async (jobId: string) => {
+    setActionLoading(`resume-${jobId}`);
+    try {
+      await resumeJob(jobId);
+    } catch (err: any) {
+      console.error('Failed to resume job:', err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCancel = async (jobId: string) => {
+    setActionLoading(`cancel-${jobId}`);
+    try {
+      await cancelJob(jobId);
+    } catch (err: any) {
+      console.error('Failed to cancel job:', err);
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const renderProgress = (job: any) => {
@@ -128,8 +155,9 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
             className={inputBase}
           >
             <option value="all">All Modes</option>
-            <option value="Full Analysis">Full Analysis</option>
+            <option value="Full Scan">Full Scan</option>
             <option value="Diff Analysis">Diff Analysis</option>
+            <option value="File Analysis">File Analysis</option>
           </select>
 
           {hasFilters && (
@@ -185,18 +213,46 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
                       job.status === 'Running' ? 'text-[#58a6ff] bg-[#58a6ff]/10 border-[#58a6ff]/20 animate-pulse' :
                       job.status === 'Completed' ? 'text-[#3fb950] bg-[#3fb950]/10 border-[#3fb950]/20' :
                       job.status === 'Queued' ? 'text-[#d29922] bg-[#d29922]/10 border-[#d29922]/20' :
+                      job.status === 'Interrupted' ? 'text-[#d29922] bg-[#d29922]/10 border-[#d29922]/20' :
                       'text-[#f85149] bg-[#f85149]/10 border-[#f85149]/20'
                     }`}>{job.status}</span>
+                    {job.resumedFrom && (
+                      <span className="block text-[9px] text-[#8b949e] mt-1">Resumed from {job.resumedFrom.slice(0, 8)}</span>
+                    )}
                   </td>
                   <td className="px-5 py-4 text-right">
-                    {job.rawId && (
-                      <button
-                        onClick={() => { onViewReports(job.rawId); setCurrentView('report'); }}
-                        className="text-xs text-[#58a6ff] hover:text-[#79c0ff] font-medium opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        View Reports →
-                      </button>
-                    )}
+                    <div className="flex items-center justify-end gap-2">
+                      {(job.rawStatus === 'interrupted' || job.rawStatus === 'failed') && (
+                        <button
+                          onClick={() => handleResume(job.rawId)}
+                          disabled={actionLoading === `resume-${job.rawId}`}
+                          className="flex items-center gap-1 text-xs text-[#d29922] hover:text-[#e6edf3] font-medium transition-colors disabled:opacity-50"
+                          title="Resume from checkpoint"
+                        >
+                          <RotateCcw size={12} className={actionLoading === `resume-${job.rawId}` ? 'animate-spin' : ''} />
+                          Resume
+                        </button>
+                      )}
+                      {job.rawStatus === 'running' && (
+                        <button
+                          onClick={() => handleCancel(job.rawId)}
+                          disabled={actionLoading === `cancel-${job.rawId}`}
+                          className="flex items-center gap-1 text-xs text-[#f85149] hover:text-[#ff7b72] font-medium transition-colors disabled:opacity-50"
+                          title="Cancel scan"
+                        >
+                          <Pause size={12} />
+                          Cancel
+                        </button>
+                      )}
+                      {job.rawId && (
+                        <button
+                          onClick={() => { onViewReports(job.rawId); setCurrentView('report'); }}
+                          className="text-xs text-[#58a6ff] hover:text-[#79c0ff] font-medium opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          View Reports →
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

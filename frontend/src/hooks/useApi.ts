@@ -164,3 +164,71 @@ export async function updateWorkerShowThinking(worker_id: string, show_thinking:
   if (!res.ok) throw new Error(`Failed to update worker show thinking: ${res.status}`);
   return res.json();
 }
+
+export async function resumeJob(jobId: string) {
+  const res = await fetch(`${API_BASE}/api/jobs/${jobId}/resume`, {
+    method: "POST",
+    headers: getHeaders(),
+  });
+  if (!res.ok) throw new Error(`Failed to resume job: ${res.status}`);
+  return res.json();
+}
+
+export async function cancelJob(jobId: string) {
+  const res = await fetch(`${API_BASE}/api/jobs/${jobId}/cancel`, {
+    method: "POST",
+    headers: getHeaders(),
+  });
+  if (!res.ok) throw new Error(`Failed to cancel job: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchGitSyncStats() {
+  const res = await fetch(`${API_BASE}/api/jobs/stats/git-sync`, { headers: getHeaders() });
+  if (!res.ok) throw new Error(`Failed to fetch git sync stats: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchSchedulerStatus(workerId?: string) {
+  const url = workerId
+    ? `${API_BASE}/api/jobs/scheduler/status?worker_id=${encodeURIComponent(workerId)}`
+    : `${API_BASE}/api/jobs/scheduler/status`;
+  const res = await fetch(url, { headers: getHeaders() });
+  if (!res.ok) throw new Error(`Failed to fetch scheduler status: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchWorkerGitStatus(workerId: string) {
+  const res = await fetch(`${API_BASE}/api/workers/${encodeURIComponent(workerId)}/git-status`, { headers: getHeaders() });
+  if (!res.ok) throw new Error(`Failed to fetch worker git status: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchAllWorkersGitStatus() {
+  const res = await fetch(`${API_BASE}/api/workers/git-status/all`, { headers: getHeaders() });
+  if (!res.ok) throw new Error(`Failed to fetch all workers git status: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchWorkerSchedule(workerId: string) {
+  const res = await fetch(`${API_BASE}/api/workers/${encodeURIComponent(workerId)}/schedule`, { headers: getHeaders() });
+  if (!res.ok) throw new Error(`Failed to fetch worker schedule: ${res.status}`);
+  return res.json();
+}
+
+export async function updateWorkerSchedule(workerId: string, payload: {
+  scan_hour?: number;
+  scan_minute?: number;
+  stop_hour?: number;
+  stop_minute?: number;
+  is_enabled?: boolean;
+  timezone?: string;
+}) {
+  const res = await fetch(`${API_BASE}/api/workers/${encodeURIComponent(workerId)}/schedule`, {
+    method: "PUT",
+    headers: getHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`Failed to update worker schedule: ${res.status}`);
+  return res.json();
+}

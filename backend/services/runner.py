@@ -83,6 +83,8 @@ async def run_orchestrator(
     file_paths: list[str] | None,
     report_dir: str,
     web_port: int = 3000,
+    resume_file: str | None = None,
+    resume_from_dir: str | None = None,
 ) -> asyncio.subprocess.Process:
     """Spawn orchestrator subprocess for a job."""
     script = find_orchestrator_script()
@@ -92,8 +94,14 @@ async def run_orchestrator(
 
     if mode == "diff" and target_commit:
         cmd.extend(["--diff", target_commit, "--repo", repo_path])
+    elif mode == "full":
+        # Full scan: worker node discovers files independently
+        cmd.extend(["--full", "--repo", repo_path])
     elif mode == "files" and file_paths:
         cmd.extend(["--files"] + file_paths)
+
+    if resume_file:
+        cmd.extend(["--resume-file", resume_file])
 
     cmd.extend([
         "--web-port", str(web_port),
@@ -105,6 +113,8 @@ async def run_orchestrator(
     env["WORKER_ID"] = "local"
     env["JOB_ID"] = job_id
     env["BACKEND_URL"] = os.environ.get("BACKEND_URL", "http://localhost:8000")
+    if resume_from_dir:
+        env["RESUME_FROM_REPORT_DIR"] = resume_from_dir
     model = detect_default_model()
     if model:
         env["OPENCODE_MODEL"] = model
