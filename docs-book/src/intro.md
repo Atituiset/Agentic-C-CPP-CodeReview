@@ -4,6 +4,8 @@
 
 ![Dashboard 截图](./images/dashboard-main.png)
 
+![操作演示](./images/login.gif)
+
 ## 项目定位
 
 Combinate Agentic Review 是一个融合了两个先前项目的 AI 代码审计平台：

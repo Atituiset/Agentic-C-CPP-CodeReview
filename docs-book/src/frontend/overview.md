@@ -36,6 +36,8 @@ frontend/src/
 
 ![登录页面](../images/login-page.png)
 
+![登录操作动图](../images/login.gif)
+
 - 用户名/密码表单
 - JWT 认证
 - 默认凭据提示: admin / admin123
@@ -44,6 +46,8 @@ frontend/src/
 
 ![全局仪表盘](../images/dashboard-main.png)
 
+![仪表盘操作动图](../images/dashboard.gif)
+
 管理员专属的全局视图，包含：
 
 - **Fleet Utilization** — 集群利用率指标
@@ -51,10 +55,13 @@ frontend/src/
 - **统计卡片** — Total Files Scanned / Local SAST Findings / LLM Semantic Findings / Saved LLM Inference Cost
 - **Registered Worker Fleet** — 已注册 Worker 节点卡片
 - **Personal View / Fleet View** 切换
+- 点击 Worker 卡片可进入 Node Detail 查看实时日志
 
 ### Worker 集群 (WorkerFleet)
 
 ![Worker 集群](../images/worker-fleet.png)
+
+![Worker 集群操作动图](../images/worker-fleet.gif)
 
 展示所有注册的 Worker 节点，每个节点卡片显示：
 
@@ -67,6 +74,8 @@ frontend/src/
 
 ![扫描作业队列](../images/scan-jobs-queue.png)
 
+![扫描作业队列操作动图](../images/scan-jobs-queue.gif)
+
 作业管理界面：
 
 - 作业列表（支持过滤/搜索）
@@ -76,6 +85,8 @@ frontend/src/
 ### 漏洞中心 (VulnerabilityCenter)
 
 ![漏洞中心](../images/vulnerability-center.png)
+
+![漏洞中心操作动图](../images/vulnerability-center.gif)
 
 漏洞生命周期管理：
 
@@ -87,6 +98,8 @@ frontend/src/
 
 ![Memory Manager](../images/memory-manager.png)
 
+![Memory Manager 操作动图](../images/memory-manager.gif)
+
 知识库管理：
 
 - **Global** / **Personal** 选项卡
@@ -96,6 +109,8 @@ frontend/src/
 ### 用户管理 (UserManager)
 
 ![用户管理](../images/user-management.png)
+
+![用户管理操作动图](../images/user-management.gif)
 
 Admin 专属功能：
 
