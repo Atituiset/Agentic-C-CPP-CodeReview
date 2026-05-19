@@ -26,3 +26,6 @@ reports/
 
 # Worktrees
 .worktrees/
+
+# mdBook build output
+docs-book/book/
