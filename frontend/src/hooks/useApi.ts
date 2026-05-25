@@ -232,3 +232,51 @@ export async function updateWorkerSchedule(workerId: string, payload: {
   if (!res.ok) throw new Error(`Failed to update worker schedule: ${res.status}`);
   return res.json();
 }
+
+export async function createWorker(payload: {
+  worker_id: string;
+  hostname?: string;
+  ip_address?: string;
+  ssh_host?: string;
+  ssh_port?: number;
+  ssh_username?: string;
+  ssh_key?: string;
+  repo_path?: string;
+  scan_mode?: string;
+  target_commit?: string;
+  cared_paths?: string[];
+}) {
+  const res = await fetch(`${API_BASE}/api/workers`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`Failed to create worker: ${res.status}`);
+  return res.json();
+}
+
+export async function deployWorker(workerId: string) {
+  const res = await fetch(`${API_BASE}/api/workers/${encodeURIComponent(workerId)}/deploy`, {
+    method: "POST",
+    headers: getHeaders(),
+  });
+  if (!res.ok) throw new Error(`Failed to deploy worker: ${res.status}`);
+  return res.json();
+}
+
+export async function deleteWorker(workerId: string) {
+  const res = await fetch(`${API_BASE}/api/workers/${encodeURIComponent(workerId)}`, {
+    method: "DELETE",
+    headers: getHeaders(),
+  });
+  if (!res.ok) throw new Error(`Failed to delete worker: ${res.status}`);
+}
+
+export async function triggerWorkerScan(workerId: string) {
+  const res = await fetch(`${API_BASE}/api/workers/${encodeURIComponent(workerId)}/trigger-scan`, {
+    method: "POST",
+    headers: getHeaders(),
+  });
+  if (!res.ok) throw new Error(`Failed to trigger scan: ${res.status}`);
+  return res.json();
+}
