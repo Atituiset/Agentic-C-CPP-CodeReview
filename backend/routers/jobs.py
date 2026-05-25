@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.database import SessionLocal
-from backend.models.schemas import JobCreate, JobResponse, JobResumeRequest, GitSyncResponse, SchedulerStatusResponse
-from backend.models.orm import Job, Task
+from backend.models.schemas import JobCreate, JobResponse, JobResumeRequest, GitSyncResponse, SchedulerStatusResponse, JobFinalizePayload
+from backend.models.orm import Job, Task, Vulnerability
 from backend.redis_client import push_job_queue
 from backend.services.git_sync import get_all_cpp_files, get_head_commit, get_changes_since
 from backend.services.scheduler import get_scheduler
@@ -159,6 +159,56 @@ async def complete_job(job_id: str, payload: dict, db: Session = Depends(get_db)
 
     db.commit()
     return {"ok": True, "job_id": job_id}
+
+
+@router.post("/api/jobs/{job_id}/finalize")
+async def finalize_job(
+    job_id: str,
+    payload: JobFinalizePayload,
+    db: Session = Depends(get_db),
+):
+    """Agent scan completion callback. Bulk-creates Task and Vulnerability records."""
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job.status = payload.status
+    job.completed_at = datetime.now(timezone.utc)
+    job.completed_files = payload.completed_files
+    job.failed_files = payload.failed_files
+
+    # Bulk create Tasks
+    for task_data in (payload.tasks or []):
+        task = Task(
+            job_id=job_id,
+            worker_id=payload.worker_id,
+            file_path=task_data.get("file_path", ""),
+            status=task_data.get("status", "done"),
+            report_file=task_data.get("report_file"),
+            log_file=task_data.get("log_file"),
+        )
+        db.add(task)
+
+    # Bulk create Vulnerabilities
+    for vuln_data in (payload.vulnerabilities or []):
+        vuln = Vulnerability(
+            job_id=job_id,
+            task_id=vuln_data.get("task_id"),
+            worker_id=payload.worker_id,
+            vuln_id=vuln_data.get("vuln_id", "VULN-UNKNOWN"),
+            file_path=vuln_data.get("file_path", ""),
+            line_start=vuln_data.get("line_start"),
+            line_end=vuln_data.get("line_end"),
+            severity=vuln_data.get("severity", "Medium"),
+            vuln_type=vuln_data.get("vuln_type", "unknown"),
+            title=vuln_data.get("title", "Unknown vulnerability"),
+            description=vuln_data.get("description"),
+            raw_json=vuln_data.get("raw_json"),
+        )
+        db.add(vuln)
+
+    db.commit()
+    return {"ok": True, "job_id": job_id, "status": payload.status}
 
 
 @router.post("/api/jobs/{job_id}/resume")
