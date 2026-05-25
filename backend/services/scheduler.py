@@ -9,7 +9,7 @@ from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.orm import Session
 
 from backend.database import SessionLocal
-from backend.models.orm import Job, SchedulerConfig, WorkerScheduleConfig
+from backend.models.orm import Job, SchedulerConfig, WorkerScheduleConfig, Worker
 from backend.redis_client import push_job_queue
 from backend.services.git_sync import get_changes_since, get_head_commit
 
@@ -186,53 +186,87 @@ class ScanScheduler:
 
 
 async def _run_worker_scan(worker_id: str):
-    """Triggered per-worker. Create a full-scan job assigned to this worker."""
+    """Triggered per-worker. Create a scan job and dispatch via HTTP to Agent."""
     logger.info(f"[worker_scan] Triggered for {worker_id}")
+
+    import httpx
     db = SessionLocal()
     try:
-        repo_path = "."
-        current_commit = get_head_commit(repo_path)
+        worker = db.query(Worker).filter(Worker.worker_id == worker_id).first()
+        if not worker:
+            logger.warning(f"Worker {worker_id} not found, skipping scan")
+            return
 
-        last_job = (
-            db.query(Job)
-            .filter(Job.mode == "full", Job.repo_path == repo_path)
-            .order_by(Job.created_at.desc())
-            .first()
-        )
-        base_commit = last_job.base_commit if last_job else None
-        git_stats = get_changes_since(repo_path, base_commit)
+        if worker.deploy_status != "deployed":
+            logger.warning(f"Worker {worker_id} not deployed, skipping scan")
+            return
 
+        # Check if worker is online (heartbeat within 2 minutes)
+        now = datetime.now(timezone.utc)
+        if worker.last_heartbeat and (now - worker.last_heartbeat).total_seconds() > 120:
+            logger.warning(f"Worker {worker_id} offline (no heartbeat), skipping scan")
+            return
+
+        # Create Job
+        repo_path = worker.repo_path or "."
         job = Job(
             repo_path=repo_path,
-            mode="full",
-            status="queued",
-            base_commit=current_commit,
-            scan_stats=json.dumps({
-                "total_files": 0,
-                "added_files": git_stats["added_files"],
-                "modified_files": git_stats["modified_files"],
-                "deleted_files": git_stats["deleted_files"],
-                "changed_lines": git_stats["changed_lines"],
-            }),
+            mode=worker.scan_mode or "full",
+            status="pending",
+            assigned_worker_id=worker_id,
         )
         db.add(job)
         db.commit()
         db.refresh(job)
 
-        await push_job_queue(job.id)
-        logger.info(f"[worker_scan] Created job {job.id} for worker {worker_id}")
+        # Build report dir (Agent local path)
+        report_dir = f"/tmp/opencode-reports/{job.id}"
 
-        # Update legacy scheduler config record
+        # HTTP dispatch to Agent
+        try:
+            agent_url = f"http://{worker.ip_address or worker.ssh_host}:8765/scan"
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(
+                    agent_url,
+                    json={
+                        "job_id": job.id,
+                        "repo_path": repo_path,
+                        "mode": worker.scan_mode or "full",
+                        "report_dir": report_dir,
+                    },
+                )
+
+                if resp.status_code == 200:
+                    job.status = "dispatched"
+                    logger.info(f"Job {job.id} dispatched to {worker_id}")
+                else:
+                    job.status = "failed"
+                    job.dispatch_error = f"Agent returned {resp.status_code}: {resp.text}"
+                    logger.error(f"Failed to dispatch job {job.id} to {worker_id}: {resp.status_code}")
+
+        except Exception as e:
+            job.status = "failed"
+            job.dispatch_error = str(e)
+            logger.error(f"Exception dispatching job {job.id} to {worker_id}: {e}")
+
+        db.commit()
+
+        # Update scheduler config (legacy compatibility)
         config = db.query(SchedulerConfig).filter(SchedulerConfig.job_name == "daily_scan").first()
         if not config:
             config = SchedulerConfig(job_name="daily_scan", job_type="scan", cron_expression="0 0 * * *")
             db.add(config)
-        config.last_run_at = datetime.now(timezone.utc)
+        config.last_run_at = now
         db.commit()
 
     except Exception as e:
+        db.rollback()
         logger.error(f"[worker_scan] Failed for {worker_id}: {e}")
     finally:
+        try:
+            db.rollback()
+        except Exception:
+            pass
         db.close()
 
 
