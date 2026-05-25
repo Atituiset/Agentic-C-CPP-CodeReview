@@ -14,6 +14,7 @@ import WorkerFleet from './components/WorkerFleet';
 import ScanJobsQueue from './components/ScanJobsQueue';
 import MemoryManager from './components/MemoryManager';
 import UserManager from './components/UserManager';
+import MyWorkers from './components/MyWorkers';
 import LoginPage from './components/LoginPage';
 import { NUM_SLOTS } from './constants';
 
@@ -46,7 +47,7 @@ function AppContent({
   logout: () => void;
 }) {
   const isAdmin = user.role === 'admin';
-  const [currentView, setCurrentView] = useState<'dashboard' | 'node' | 'fleet' | 'jobs' | 'vulnerabilities' | 'memory' | 'users'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'node' | 'fleet' | 'jobs' | 'vulnerabilities' | 'memory' | 'users' | 'my-workers'>('dashboard');
   const [appMode, setAppMode] = useState<'enterprise' | 'personal'>(isAdmin ? 'enterprise' : 'personal');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
@@ -295,6 +296,11 @@ function AppContent({
           <button onClick={() => setCurrentView('memory')} className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-colors cursor-pointer w-full text-left ${currentView === 'memory' ? 'bg-[#21262d] text-[#e6edf3] border border-[#30363d]/50 shadow-sm' : 'text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#161b22]'}`}>
             <Database size={16} className={currentView === 'memory' ? 'text-[#58a6ff]' : ''} /> Memory Manager
           </button>
+          {appMode === 'personal' && (
+            <button onClick={() => setCurrentView('my-workers')} className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-colors cursor-pointer w-full text-left ${currentView === 'my-workers' ? 'bg-[#21262d] text-[#e6edf3] border border-[#30363d]/50 shadow-sm' : 'text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#161b22]'}`}>
+              <Server size={16} className={currentView === 'my-workers' ? 'text-[#58a6ff]' : ''} /> My Workers
+            </button>
+          )}
           {isAdmin && appMode === 'enterprise' && (
             <button onClick={() => setCurrentView('users')} className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-colors cursor-pointer w-full text-left ${currentView === 'users' ? 'bg-[#21262d] text-[#e6edf3] border border-[#30363d]/50 shadow-sm' : 'text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#161b22]'}`}>
               <Users size={16} className={currentView === 'users' ? 'text-[#58a6ff]' : ''} /> User Management
@@ -415,6 +421,8 @@ function AppContent({
           <MemoryManager />
         ) : currentView === 'users' ? (
           <UserManager />
+        ) : currentView === 'my-workers' ? (
+          <MyWorkers />
         ) : currentView === 'report' ? (
           <ReportViewer jobId={selectedJobId!} onBack={() => { setCurrentView('jobs'); setSelectedJobId(null); }} />
         ) : (
