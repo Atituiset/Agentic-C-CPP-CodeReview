@@ -10,6 +10,7 @@ Capabilities:
 """
 
 import asyncio
+import atexit
 import json
 import os
 import socket
@@ -57,6 +58,12 @@ else:
     print(f"ERROR: Config not found at {CONFIG_PATH}")
     sys.exit(1)
 
+required_keys = ["worker_id", "backend_url", "redis_url"]
+missing = [k for k in required_keys if k not in config or not config[k]]
+if missing:
+    print(f"ERROR: Missing required config keys: {missing}")
+    sys.exit(1)
+
 WORKER_ID = config.get("worker_id", "unknown")
 BACKEND_URL = config.get("backend_url", "http://localhost:8000")
 REDIS_URL = config.get("redis_url", "redis://localhost:6379/0")
@@ -64,6 +71,9 @@ REPO_PATH = config.get("repo_path", ".")
 
 # Global state
 _orchestrator_proc: Optional[subprocess.Popen] = None
+_current_job_id: Optional[str] = None
+_heartbeat_task: Optional[asyncio.Task] = None
+_monitor_task_ref: Optional[asyncio.Task] = None
 
 
 def get_local_ip() -> str:
@@ -102,7 +112,7 @@ async def _heartbeat_loop():
             async with httpx.AsyncClient(timeout=10.0) as client:
                 await client.post(
                     f"{BACKEND_URL}/api/workers/{WORKER_ID}/heartbeat",
-                    json={"status": status, "current_job_id": _get_current_job_id()},
+                    json={"status": status, "current_job_id": _current_job_id},
                 )
         except Exception as e:
             print(f"[Agent] Heartbeat failed: {e}")
@@ -116,7 +126,7 @@ def _is_orchestrator_running() -> bool:
 
 
 def _get_current_job_id() -> Optional[str]:
-    return getattr(_monitor_task, "job_id", None) if "_monitor_task" in globals() else None
+    return _current_job_id
 
 
 @app.post("/scan")
@@ -148,12 +158,21 @@ async def start_scan(payload: dict):
 
     cmd = ["python3", str(orch_path), f"--{mode}", "--repo", repo_path, "-c", "3"]
 
+    log_path = Path.home() / ".opencode-agent" / "logs" / f"orchestrator-{job_id}.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
     print(f"[Agent] Starting scan: job={job_id}, mode={mode}, repo={repo_path}")
     _orchestrator_proc = subprocess.Popen(
-        cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        cmd, env=env,
+        stdout=open(log_path, "w"),
+        stderr=subprocess.STDOUT,
     )
 
-    asyncio.create_task(_monitor_scan(job_id, report_dir))
+    global _current_job_id
+    _current_job_id = job_id
+
+    global _monitor_task_ref
+    _monitor_task_ref = asyncio.create_task(_monitor_scan(job_id, report_dir))
     return {"ok": True, "pid": _orchestrator_proc.pid}
 
 
@@ -168,6 +187,7 @@ async def _monitor_scan(job_id: str, report_dir: str):
     while proc.poll() is None:
         await asyncio.sleep(2)
 
+    proc.wait()
     exit_code = proc.returncode
     print(f"[Agent] Scan completed: job={job_id}, exit_code={exit_code}")
 
@@ -230,6 +250,8 @@ async def _monitor_scan(job_id: str, report_dir: str):
         print(f"[Agent] Failed to finalize job: {e}")
 
     _orchestrator_proc = None
+    global _current_job_id
+    _current_job_id = None
 
 
 @app.get("/health")
@@ -237,10 +259,24 @@ async def health():
     return {"ok": True, "worker_id": WORKER_ID, "scanning": _is_orchestrator_running()}
 
 
+def _cleanup_orchestrator():
+    global _orchestrator_proc
+    if _orchestrator_proc and _orchestrator_proc.poll() is None:
+        _orchestrator_proc.terminate()
+        try:
+            _orchestrator_proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            _orchestrator_proc.kill()
+
+
+atexit.register(_cleanup_orchestrator)
+
+
 @app.on_event("startup")
 async def on_startup():
     await _register()
-    asyncio.create_task(_heartbeat_loop())
+    global _heartbeat_task
+    _heartbeat_task = asyncio.create_task(_heartbeat_loop())
 
 
 if __name__ == "__main__":
