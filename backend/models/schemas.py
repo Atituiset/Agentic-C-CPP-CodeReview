@@ -76,6 +76,16 @@ class WorkerResponse(BaseModel):
     registered_at: Optional[datetime] = None
     capabilities: Optional[dict] = None
     show_thinking: bool = True
+    owner_id: Optional[str] = None
+    ssh_host: Optional[str] = None
+    ssh_port: int = 22
+    ssh_username: Optional[str] = None
+    deploy_status: str = "pending"
+    deploy_error: Optional[str] = None
+    repo_path: Optional[str] = None
+    scan_mode: str = "full"
+    target_commit: Optional[str] = None
+    cared_paths: Optional[List[str]] = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -215,3 +225,37 @@ class WorkerScheduleConfigUpdate(BaseModel):
     stop_minute: Optional[int] = None
     is_enabled: Optional[bool] = None
     timezone: Optional[str] = None
+
+
+class WorkerCreate(BaseModel):
+    worker_id: str = Field(min_length=1, max_length=64)
+    hostname: Optional[str] = None
+    ip_address: Optional[str] = None
+    ssh_host: Optional[str] = None
+    ssh_port: int = 22
+    ssh_username: Optional[str] = None
+    ssh_key: Optional[str] = None
+    repo_path: Optional[str] = None
+    scan_mode: str = Field(default="full", pattern="^(full|diff)$")
+    target_commit: Optional[str] = None
+    cared_paths: Optional[List[str]] = None
+
+
+class WorkerDeployRequest(BaseModel):
+    worker_id: str
+
+
+class ScanRequest(BaseModel):
+    job_id: str
+    repo_path: str
+    mode: str = Field(pattern="^(full|diff|files)$")
+    report_dir: str
+
+
+class JobFinalizePayload(BaseModel):
+    status: str = Field(pattern="^(completed|failed|interrupted)$")
+    worker_id: str
+    completed_files: int = 0
+    failed_files: int = 0
+    tasks: Optional[List[dict]] = None
+    vulnerabilities: Optional[List[dict]] = None
