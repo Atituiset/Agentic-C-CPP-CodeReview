@@ -45,6 +45,8 @@ class Job(Base):
     scan_stats = Column(Text, nullable=True)
     # If this job is a resume of another interrupted job
     resumed_from_id = Column(String(36), ForeignKey("jobs.id"), nullable=True)
+    assigned_worker_id = Column(String(64), nullable=True)
+    dispatch_error = Column(Text, nullable=True)
 
     tasks = relationship(
         "Task", back_populates="job", cascade="all, delete-orphan"
@@ -86,6 +88,17 @@ class Worker(Base):
     registered_at = Column(DateTime(timezone=True), server_default=func.now())
     capabilities = Column(Text, nullable=True)
     show_thinking = Column(Boolean, default=True)
+    owner_id = Column(String(36), ForeignKey("users.id"), nullable=True)
+    ssh_host = Column(String(256), nullable=True)
+    ssh_port = Column(Integer, default=22)
+    ssh_username = Column(String(128), nullable=True)
+    ssh_key = Column(Text, nullable=True)
+    deploy_status = Column(String(16), default="pending")
+    deploy_error = Column(Text, nullable=True)
+    repo_path = Column(Text, nullable=True)
+    scan_mode = Column(String(16), default="full")
+    target_commit = Column(String(64), nullable=True)
+    cared_paths = Column(Text, nullable=True)
 
 
 class User(Base):
