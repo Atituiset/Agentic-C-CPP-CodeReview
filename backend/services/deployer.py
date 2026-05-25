@@ -1,7 +1,8 @@
 import asyncio
 import json
 import logging
-from io import StringIO
+import os
+import tempfile
 from pathlib import Path
 
 import asyncssh
@@ -18,8 +19,9 @@ class DeploymentError(Exception):
 
 
 async def deploy_worker(worker_id: str):
-    """通过 SSH 连接到 Worker 机器，检查环境并部署 Agent。"""
+    """Connect to the Worker machine via SSH, check the environment, and deploy the Agent."""
     db = SessionLocal()
+    worker = None
     try:
         worker = db.query(Worker).filter(Worker.worker_id == worker_id).first()
         if not worker:
@@ -48,7 +50,7 @@ async def deploy_worker(worker_id: str):
 
 
 async def _do_deploy(worker: Worker):
-    """执行 SSH 部署的实际逻辑。"""
+    """Execute the actual SSH deployment logic."""
     if not worker.ssh_host or not worker.ssh_username:
         raise DeploymentError("SSH host and username are required")
 
@@ -56,13 +58,14 @@ async def _do_deploy(worker: Worker):
         "host": worker.ssh_host,
         "port": worker.ssh_port or 22,
         "username": worker.ssh_username,
+        # Intentionally disabled for dynamically provisioned workers in intranet environments
         "known_hosts": None,
     }
     if worker.ssh_key:
         conn_kwargs["client_keys"] = [asyncssh.import_private_key(worker.ssh_key)]
 
     async with asyncssh.connect(**conn_kwargs) as conn:
-        # 1. 检查 Python 版本
+        # 1. Check Python version
         result = await conn.run("python3 --version")
         if result.exit_status != 0:
             raise DeploymentError("python3 not found on remote machine")
@@ -75,7 +78,7 @@ async def _do_deploy(worker: Worker):
         except (IndexError, ValueError):
             logger.warning(f"Could not parse Python version: {version_line}")
 
-        # 2. 检查并安装依赖
+        # 2. Check and install dependencies
         check = await conn.run(
             "python3 -c 'import redis.asyncio, httpx, fastapi, uvicorn' 2>/dev/null"
         )
@@ -88,10 +91,10 @@ async def _do_deploy(worker: Worker):
             if install.exit_status != 0:
                 raise DeploymentError(f"pip install failed: {install.stderr}")
 
-        # 3. 创建 Agent 目录
+        # 3. Create Agent directory
         await conn.run("mkdir -p ~/.opencode-agent/logs")
 
-        # 4. SFTP 上传文件
+        # 4. SFTP upload files
         backend_url = _get_backend_url()
         redis_url = _get_redis_url()
 
@@ -107,13 +110,13 @@ async def _do_deploy(worker: Worker):
                 str(AGENT_TEMPLATE_PATH),
                 ".opencode-agent/agent.py",
             )
-            config_data = json.dumps(config, indent=2)
-            await sftp.put(
-                StringIO(config_data),
-                ".opencode-agent/config.json",
-            )
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                f.write(json.dumps(config, indent=2))
+                temp_path = f.name
+            await sftp.put(temp_path, ".opencode-agent/config.json")
+            Path(temp_path).unlink()
 
-        # 5. 启动 Agent
+        # 5. Start Agent
         await conn.run(
             "cd ~/.opencode-agent && "
             "(kill $(cat agent.pid 2>/dev/null) 2>/dev/null; sleep 1; true) && "
@@ -121,7 +124,11 @@ async def _do_deploy(worker: Worker):
             "echo $! > agent.pid",
         )
 
-        # 6. 等待 Agent 注册（最多 60 秒）
+        pid_check = await conn.run("ps -p $(cat ~/.opencode-agent/agent.pid) > /dev/null 2>&1")
+        if pid_check.exit_status != 0:
+            raise DeploymentError("Agent process did not start")
+
+        # 6. Wait for Agent registration (up to 60 seconds)
         db2 = SessionLocal()
         try:
             for _ in range(30):
@@ -136,10 +143,8 @@ async def _do_deploy(worker: Worker):
 
 
 def _get_backend_url() -> str:
-    import os
     return os.environ.get("BACKEND_URL", "http://localhost:8000")
 
 
 def _get_redis_url() -> str:
-    import os
     return os.environ.get("REDIS_URL", "redis://localhost:6379/0")
