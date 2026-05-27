@@ -12,14 +12,14 @@ async def test_event_generator():
     # Publish a message in background after short delay
     async def publish_after_delay():
         await asyncio.sleep(0.1)
-        await redis.publish("slot:0:logs", '{"type":"stdout","content":"hello"}')
+        await redis.publish("slot:test-worker:0:logs", '{"type":"stdout","content":"hello"}')
 
     publisher = asyncio.create_task(publish_after_delay())
 
     # Collect messages from generator with timeout
     messages = []
     try:
-        async for msg in event_generator(0):
+        async for msg in event_generator("test-worker", 0):
             messages.append(msg)
             if len(messages) >= 1:
                 break

@@ -26,29 +26,15 @@ def reset_redis_pool():
     redis_pool = None
 
 
-async def publish_log(slot_id: int, payload: dict, worker_id: str = "local"):
+async def publish_log(slot_id: int, payload: dict, worker_id: str):
     redis = await get_redis()
-    if worker_id == "local":
-        # Local worker: publish to legacy channel only
-        channel = f"slot:{slot_id}:logs"
-        await redis.publish(channel, json.dumps(payload))
-    else:
-        # External worker: publish to worker-specific channel only
-        channel = f"slot:{worker_id}:{slot_id}:logs"
-        await redis.publish(channel, json.dumps(payload))
+    await redis.publish(f"slot:{worker_id}:{slot_id}:logs", json.dumps(payload))
 
 
-async def publish_meta(slot_id: int, event: str, payload: dict, worker_id: str = "local"):
+async def publish_meta(slot_id: int, event: str, payload: dict, worker_id: str):
     redis = await get_redis()
     data = json.dumps({"type": "meta", "event": event, **payload})
-    if worker_id == "local":
-        # Local worker: publish to legacy channel only
-        channel = f"slot:{slot_id}:logs"
-        await redis.publish(channel, data)
-    else:
-        # External worker: publish to worker-specific channel only
-        channel = f"slot:{worker_id}:{slot_id}:logs"
-        await redis.publish(channel, data)
+    await redis.publish(f"slot:{worker_id}:{slot_id}:logs", data)
 
 
 async def push_job_queue(job_id: str):

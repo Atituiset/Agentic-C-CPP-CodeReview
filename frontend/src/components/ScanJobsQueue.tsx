@@ -9,7 +9,7 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // If scanning, show a pseudo job
-  const activeJobs = isScanning ? [{ id: 'job-current', repo: 'current-workspace', branch: 'local', commit: 'HEAD', status: 'Running', time: 'Started just now', type: 'Interactive Analysis', workerId: 'local' }] : [];
+  const activeJobs = isScanning ? [{ id: 'job-current', repo: 'current-workspace', branch: '—', commit: 'HEAD', status: 'Running', time: 'Started just now', type: 'Interactive Analysis', workerId: '—' }] : [];
 
   const allJobs = [
     ...activeJobs,
@@ -26,8 +26,9 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
       totalFiles: j.total_files || 0,
       completedFiles: j.completed_files || 0,
       failedFiles: j.failed_files || 0,
-      workerId: j.worker_id || 'local',
+      workerId: j.worker_id || '—',
       resumedFrom: j.resumed_from_id,
+      dispatchError: j.dispatch_error,
     }))
   ];
 
@@ -85,15 +86,15 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
     if (job.totalFiles <= 0) return null;
     const pct = Math.round((job.completedFiles / job.totalFiles) * 100);
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-center gap-2">
         <div className="w-24 bg-[#010409] h-1.5 rounded-full overflow-hidden border border-[#30363d]">
           <div
             className="h-full bg-[#238636] transition-all duration-500"
             style={{ width: `${pct}%` }}
           />
         </div>
-        <span className="text-[10px] text-[#8b949e] tabular-nums">
-          {job.completedFiles}/{job.totalFiles}
+        <span className="text-[11px] text-[#8b949e] tabular-nums">
+          <span className="text-[#3fb950] font-bold">{job.completedFiles}</span>/{job.totalFiles}
         </span>
         {job.failedFiles > 0 && (
           <span className="text-[10px] text-[#f85149]">{job.failedFiles} failed</span>
@@ -105,7 +106,7 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
   const inputBase = 'bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-1.5 text-sm text-[#e6edf3] placeholder:text-[#484f58] focus:outline-none focus:border-[#58a6ff] focus:ring-1 focus:ring-[#58a6ff]/30 hover:border-[#8b949e]/50 transition-colors';
 
   return (
-    <div className="flex flex-col h-full bg-[#06090e]">
+    <div className="flex flex-col h-full bg-[#06090e] min-w-0 w-full overflow-hidden">
       <header className="px-8 py-5 bg-[#0d1117] border-b border-[#30363d] flex items-center justify-between shrink-0 shadow-sm flex-wrap gap-4">
         <div>
           <h1 className="text-xl font-semibold text-[#e6edf3] flex items-center gap-3">
@@ -115,9 +116,9 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-8 max-w-[1600px] mx-auto w-full">
+      <div className="flex-1 flex flex-col p-8 max-w-full w-full min-w-0 overflow-hidden">
         {/* Filter Bar */}
-        <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="mb-4 flex flex-wrap items-center gap-3 shrink-0">
           <div className="relative flex-1 min-w-[200px] max-w-md">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#484f58]" />
             <input
@@ -174,19 +175,19 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
           </span>
         </div>
 
-        <div className="bg-[#0d1117] border border-[#30363d] rounded-xl shadow-sm overflow-hidden flex flex-col h-full">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-[#0d1117] text-[#8b949e] text-[11px] font-bold uppercase tracking-wider border-b border-[#30363d]">
+        <div className="flex-1 bg-[#0d1117] border border-[#30363d] rounded-xl shadow-sm overflow-auto w-full max-w-full custom-scrollbar min-w-0">
+          <table className="min-w-full text-left text-sm whitespace-nowrap border-collapse">
+            <thead className="bg-[#0d1117] text-[#8b949e] text-[11px] font-bold uppercase tracking-wider border-b border-[#30363d] sticky top-0 z-10">
               <tr>
-                <th className="px-5 py-3">Job ID</th>
-                <th className="px-5 py-3">Repository</th>
-                <th className="px-5 py-3">Branch / Commit</th>
-                <th className="px-5 py-3">Job Type</th>
-                <th className="px-5 py-3">Worker</th>
-                <th className="px-5 py-3 text-center">Progress</th>
-                <th className="px-5 py-3 text-right">Timing</th>
-                <th className="px-5 py-3 text-center">Status</th>
-                <th className="px-5 py-3 text-right">Actions</th>
+                <th className="px-5 py-3 bg-[#0d1117] sticky top-0 z-10">Job ID</th>
+                <th className="px-5 py-3 bg-[#0d1117] sticky top-0 z-10">Repository</th>
+                <th className="px-5 py-3 bg-[#0d1117] sticky top-0 z-10">Branch / Commit</th>
+                <th className="px-5 py-3 bg-[#0d1117] sticky top-0 z-10">Job Type</th>
+                <th className="px-5 py-3 bg-[#0d1117] sticky top-0 z-10">Worker</th>
+                <th className="px-5 py-3 text-center bg-[#0d1117] sticky top-0 z-10 w-[180px] min-w-[180px]">Progress</th>
+                <th className="px-5 py-3 text-right bg-[#0d1117] sticky top-0 z-10 w-[150px] min-w-[150px]">Timing</th>
+                <th className="px-5 py-3 text-center bg-[#0d1117] sticky top-0 z-10 w-[120px] min-w-[120px]">Status</th>
+                <th className="pl-5 pr-8 py-3 text-right bg-[#0d1117] sticky top-0 z-10 w-[280px] min-w-[280px]">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]">
@@ -195,7 +196,7 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
                   <td className="px-5 py-4 font-mono text-[#58a6ff] text-xs">
                     {job.id}
                   </td>
-                  <td className="px-5 py-4 text-[#e6edf3] text-[13px] font-medium">{job.repo}</td>
+                  <td className="px-5 py-4 text-[#e6edf3] text-[13px] font-medium max-w-[250px] truncate" title={job.repo}>{job.repo}</td>
                   <td className="px-5 py-4 font-mono text-xs text-[#8b949e]">
                     <span className="text-[#e6edf3] bg-[#21262d] px-1.5 py-0.5 rounded mr-2">{job.branch}</span>
                     {job.commit}
@@ -204,50 +205,55 @@ export default function ScanJobsQueue({ isScanning, jobs, jobsLoading, onViewRep
                   <td className="px-5 py-4 font-mono text-xs text-[#8b949e]">
                     <span className="bg-[#21262d] px-1.5 py-0.5 rounded text-[#58a6ff]">{job.workerId}</span>
                   </td>
-                  <td className="px-5 py-4 text-center">
+                  <td className="px-5 py-4 text-center w-[180px] min-w-[180px]">
                     {renderProgress(job)}
                   </td>
-                  <td className="px-5 py-4 text-[#8b949e] text-xs text-right whitespace-nowrap">{job.time}</td>
-                  <td className="px-5 py-4 text-center">
+                  <td className="px-5 py-4 text-[#8b949e] text-xs text-right whitespace-nowrap w-[150px] min-w-[150px]">{job.time}</td>
+                  <td className="px-5 py-4 text-center w-[120px] min-w-[120px]">
                     <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${
-                      job.status === 'Running' ? 'text-[#58a6ff] bg-[#58a6ff]/10 border-[#58a6ff]/20 animate-pulse' :
+                      job.status === 'Running' || job.status === 'Dispatched' ? 'text-[#58a6ff] bg-[#58a6ff]/10 border-[#58a6ff]/20 animate-pulse' :
                       job.status === 'Completed' ? 'text-[#3fb950] bg-[#3fb950]/10 border-[#3fb950]/20' :
                       job.status === 'Queued' ? 'text-[#d29922] bg-[#d29922]/10 border-[#d29922]/20' :
                       job.status === 'Interrupted' ? 'text-[#d29922] bg-[#d29922]/10 border-[#d29922]/20' :
                       'text-[#f85149] bg-[#f85149]/10 border-[#f85149]/20'
                     }`}>{job.status}</span>
+                    {job.dispatchError && (
+                      <span className="block text-[10px] text-[#ff7b72] mt-1 text-center whitespace-normal max-w-[110px] mx-auto leading-tight" title={job.dispatchError}>
+                        ⚠️ {job.dispatchError}
+                      </span>
+                    )}
                     {job.resumedFrom && (
                       <span className="block text-[9px] text-[#8b949e] mt-1">Resumed from {job.resumedFrom.slice(0, 8)}</span>
                     )}
                   </td>
-                  <td className="px-5 py-4 text-right">
+                  <td className="pl-5 pr-8 py-4 text-right w-[280px] min-w-[280px]">
                     <div className="flex items-center justify-end gap-2">
                       {(job.rawStatus === 'interrupted' || job.rawStatus === 'failed') && (
                         <button
                           onClick={() => handleResume(job.rawId)}
                           disabled={actionLoading === `resume-${job.rawId}`}
-                          className="flex items-center gap-1 text-xs text-[#d29922] hover:text-[#e6edf3] font-medium transition-colors disabled:opacity-50"
-                          title="Resume from checkpoint"
+                          className="flex items-center gap-1 text-xs text-[#3fb950] hover:text-[#56d364] font-medium transition-colors disabled:opacity-50"
+                          title="Accept / Resume scan job"
                         >
                           <RotateCcw size={12} className={actionLoading === `resume-${job.rawId}` ? 'animate-spin' : ''} />
-                          Resume
+                          Accept & Resume
                         </button>
                       )}
-                      {job.rawStatus === 'running' && (
+                      {(job.rawStatus === 'running' || job.rawStatus === 'queued' || job.rawStatus === 'pending') && (
                         <button
                           onClick={() => handleCancel(job.rawId)}
                           disabled={actionLoading === `cancel-${job.rawId}`}
                           className="flex items-center gap-1 text-xs text-[#f85149] hover:text-[#ff7b72] font-medium transition-colors disabled:opacity-50"
-                          title="Cancel scan"
+                          title="Reject / Cancel scan job"
                         >
                           <Pause size={12} />
-                          Cancel
+                          Reject & Cancel
                         </button>
                       )}
                       {job.rawId && (
                         <button
                           onClick={() => { onViewReports(job.rawId); setCurrentView('report'); }}
-                          className="text-xs text-[#58a6ff] hover:text-[#79c0ff] font-medium opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="text-xs text-[#58a6ff] hover:text-[#79c0ff] font-medium transition-colors"
                         >
                           View Reports →
                         </button>

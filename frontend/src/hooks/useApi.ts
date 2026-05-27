@@ -17,7 +17,7 @@ export async function fetchJobs() {
 
 export async function createJob(payload: {
   repo_path?: string;
-  mode: "diff" | "files";
+  mode: "diff" | "files" | "full";
   target_commit?: string;
   file_paths?: string[];
 }) {
@@ -241,6 +241,7 @@ export async function createWorker(payload: {
   ssh_port?: number;
   ssh_username?: string;
   ssh_key?: string;
+  ssh_password?: string;
   repo_path?: string;
   scan_mode?: string;
   target_commit?: string;
@@ -278,5 +279,36 @@ export async function triggerWorkerScan(workerId: string) {
     headers: getHeaders(),
   });
   if (!res.ok) throw new Error(`Failed to trigger scan: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchDeployKey() {
+  const res = await fetch(`${API_BASE}/api/workers/deploy-key`, { headers: getHeaders() });
+  if (!res.ok) throw new Error(`Failed to fetch deploy key: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchWorkerDeployLogs(workerId: string) {
+  const res = await fetch(`${API_BASE}/api/workers/${encodeURIComponent(workerId)}/deploy-logs`, { headers: getHeaders() });
+  if (!res.ok) throw new Error(`Failed to fetch deploy logs: ${res.status}`);
+  return res.json();
+}
+
+export async function updateWorker(workerId: string, payload: {
+  ssh_host?: string;
+  ssh_port?: number;
+  ssh_username?: string;
+  ssh_password?: string;
+  repo_path?: string;
+  scan_mode?: string;
+  target_commit?: string;
+  cared_paths?: string[];
+}) {
+  const res = await fetch(`${API_BASE}/api/workers/${encodeURIComponent(workerId)}`, {
+    method: "PUT",
+    headers: getHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`Failed to update worker: ${res.status}`);
   return res.json();
 }

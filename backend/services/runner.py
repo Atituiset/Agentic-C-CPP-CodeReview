@@ -110,7 +110,7 @@ async def run_orchestrator(
 
     env = os.environ.copy()
     env["REPORT_DIR"] = report_dir
-    env["WORKER_ID"] = "local"
+    env["WORKER_ID"] = os.environ.get("WORKER_ID", "backend")
     env["JOB_ID"] = job_id
     env["BACKEND_URL"] = os.environ.get("BACKEND_URL", "http://localhost:8000")
     if resume_from_dir:

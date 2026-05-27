@@ -5,7 +5,6 @@ def test_fastapi_imports():
     import fastapi
     import uvicorn
     import sqlalchemy
-    import alembic
     import redis
     import httpx
     assert fastapi.__version__ >= "0.100.0"

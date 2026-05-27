@@ -19,16 +19,7 @@ export default function PersonalDashboard({
   onNodeClick: (nodeId: string) => void;
   onUpdateWorkerShowThinking?: (workerId: string, show: boolean) => void;
 }) {
-  // Combine local + API workers for display
-  const localSlots = workerSlots['local'] || [];
-  const localRunning = localSlots.filter((s: any) => s.status === 'running').length;
-  const localStatus = localRunning > 0 ? 'running' : 'idle';
-
-  const incomingLocal = workers.find((w: any) => w.worker_id === 'local');
-  const allWorkers = [
-    incomingLocal || { worker_id: 'local', hostname: 'localhost', ip_address: '127.0.0.1', status: localStatus },
-    ...workers.filter((w: any) => w.worker_id !== 'local'),
-  ];
+  const allWorkers = workers;
 
   return (
     <div className="flex flex-col h-full">

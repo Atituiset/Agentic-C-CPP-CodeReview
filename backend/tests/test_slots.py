@@ -10,7 +10,7 @@ async def test_slot_acquire_and_push():
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Acquire
         r = await client.post(
-            "/api/slot/0/acquire",
+            "/api/slot/test-worker/0/acquire",
             json={"task_id": "t1", "file_path": "a.c"},
         )
         assert r.status_code == 200
@@ -18,7 +18,7 @@ async def test_slot_acquire_and_push():
 
         # Push
         r = await client.post(
-            "/api/slot/0/push",
+            "/api/slot/test-worker/0/push",
             json={"log_type": "stdout", "content": "hello"},
         )
         assert r.status_code == 200
@@ -26,13 +26,13 @@ async def test_slot_acquire_and_push():
 
         # Status
         r = await client.post(
-            "/api/slot/0/status",
+            "/api/slot/test-worker/0/status",
             json={"status": "done", "duration": 1.5},
         )
         assert r.status_code == 200
         assert r.json()["ok"] is True
 
         # Release
-        r = await client.post("/api/slot/0/release")
+        r = await client.post("/api/slot/test-worker/0/release")
         assert r.status_code == 200
         assert r.json()["ok"] is True

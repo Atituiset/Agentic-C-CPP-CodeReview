@@ -20,18 +20,8 @@ def _get_slots(worker_id: str):
     return worker_slots[worker_id]
 
 
-@router.post("/api/slot/{slot_id}/acquire")
-async def slot_acquire_legacy(slot_id: int, payload: SlotAcquirePayload):
-    """Legacy slot acquire - maps to local worker."""
-    return await _slot_acquire("local", slot_id, payload)
-
-
 @router.post("/api/slot/{worker_id}/{slot_id}/acquire")
 async def slot_acquire(worker_id: str, slot_id: int, payload: SlotAcquirePayload):
-    return await _slot_acquire(worker_id, slot_id, payload)
-
-
-async def _slot_acquire(worker_id: str, slot_id: int, payload: SlotAcquirePayload):
     if slot_id < 0 or slot_id >= NUM_SLOTS:
         return {"ok": False, "error": "Invalid slot"}
     slots = _get_slots(worker_id)
@@ -48,18 +38,8 @@ async def _slot_acquire(worker_id: str, slot_id: int, payload: SlotAcquirePayloa
     return {"ok": True}
 
 
-@router.post("/api/slot/{slot_id}/push")
-async def slot_push_legacy(slot_id: int, payload: SlotPushPayload):
-    """Legacy slot push - maps to local worker."""
-    return await _slot_push("local", slot_id, payload)
-
-
 @router.post("/api/slot/{worker_id}/{slot_id}/push")
 async def slot_push(worker_id: str, slot_id: int, payload: SlotPushPayload):
-    return await _slot_push(worker_id, slot_id, payload)
-
-
-async def _slot_push(worker_id: str, slot_id: int, payload: SlotPushPayload):
     if slot_id < 0 or slot_id >= NUM_SLOTS:
         return {"ok": False, "error": "Invalid slot"}
     await publish_log(slot_id, {
@@ -70,18 +50,8 @@ async def _slot_push(worker_id: str, slot_id: int, payload: SlotPushPayload):
     return {"ok": True}
 
 
-@router.post("/api/slot/{slot_id}/status")
-async def slot_status_legacy(slot_id: int, payload: SlotStatusPayload):
-    """Legacy slot status - maps to local worker."""
-    return await _slot_status("local", slot_id, payload)
-
-
 @router.post("/api/slot/{worker_id}/{slot_id}/status")
 async def slot_status(worker_id: str, slot_id: int, payload: SlotStatusPayload):
-    return await _slot_status(worker_id, slot_id, payload)
-
-
-async def _slot_status(worker_id: str, slot_id: int, payload: SlotStatusPayload):
     if slot_id < 0 or slot_id >= NUM_SLOTS:
         return {"ok": False, "error": "Invalid slot"}
     slots = _get_slots(worker_id)
@@ -94,18 +64,8 @@ async def _slot_status(worker_id: str, slot_id: int, payload: SlotStatusPayload)
     return {"ok": True}
 
 
-@router.post("/api/slot/{slot_id}/release")
-async def slot_release_legacy(slot_id: int):
-    """Legacy slot release - maps to local worker."""
-    return await _slot_release("local", slot_id)
-
-
 @router.post("/api/slot/{worker_id}/{slot_id}/release")
 async def slot_release(worker_id: str, slot_id: int):
-    return await _slot_release(worker_id, slot_id)
-
-
-async def _slot_release(worker_id: str, slot_id: int):
     if slot_id < 0 or slot_id >= NUM_SLOTS:
         return {"ok": False, "error": "Invalid slot"}
     slots = _get_slots(worker_id)

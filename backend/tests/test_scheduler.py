@@ -32,17 +32,28 @@ class TestScanScheduler:
         assert status["is_enabled"] is False
         assert status["is_running"] is False
 
+    @pytest.mark.asyncio
     @patch("backend.services.scheduler.AsyncIOScheduler")
-    def test_start_creates_jobs(self, mock_scheduler_class, scheduler):
+    async def test_start_creates_jobs(self, mock_scheduler_class, scheduler):
+        from backend.database import SessionLocal
+        from backend.models.orm import WorkerScheduleConfig
+        db = SessionLocal()
+        db.query(WorkerScheduleConfig).delete()
+        config = WorkerScheduleConfig(
+            worker_id="test-worker",
+            scan_hour=1,
+            scan_minute=0,
+            stop_hour=2,
+            stop_minute=0,
+            is_enabled=True,
+        )
+        db.add(config)
+        db.commit()
+        db.close()
+
         mock_sched = MagicMock()
         mock_scheduler_class.return_value = mock_sched
-        import asyncio
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(scheduler.start())
-        finally:
-            loop.close()
+        await scheduler.start()
         mock_sched.add_job.assert_called()
         mock_sched.start.assert_called_once()
 

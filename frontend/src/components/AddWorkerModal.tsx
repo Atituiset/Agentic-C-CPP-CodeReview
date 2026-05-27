@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { X } from 'lucide-react';
-import { createWorker } from '../hooks/useApi';
+import React, { useState, useEffect } from 'react';
+import { X, Copy, Check } from 'lucide-react';
+import { createWorker, fetchDeployKey } from '../hooks/useApi';
 
 interface AddWorkerModalProps {
   onClose: () => void;
@@ -13,16 +13,49 @@ export default function AddWorkerModal({ onClose, onSuccess }: AddWorkerModalPro
     ssh_host: '',
     ssh_port: 22,
     ssh_username: '',
-    ssh_key: '',
+    ssh_password: '',
     repo_path: '',
     scan_mode: 'full',
     cared_paths: '',
   });
+  const [publicKey, setPublicKey] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [copiedCmd, setCopiedCmd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    fetchDeployKey()
+      .then(data => setPublicKey(data.public_key))
+      .catch(err => console.error('Failed to load deploy key:', err));
+  }, []);
+
   const handleChange = (field: string, value: string | number) => {
     setForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(publicKey);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback
+    }
+  };
+
+  const deployCommand = publicKey
+    ? `mkdir -p ~/.ssh && echo "${publicKey}" >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys`
+    : '';
+
+  const handleCopyCommand = async () => {
+    try {
+      await navigator.clipboard.writeText(deployCommand);
+      setCopiedCmd(true);
+      setTimeout(() => setCopiedCmd(false), 2000);
+    } catch {
+      // Fallback
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -36,7 +69,7 @@ export default function AddWorkerModal({ onClose, onSuccess }: AddWorkerModalPro
         ssh_host: form.ssh_host || undefined,
         ssh_port: form.ssh_port || undefined,
         ssh_username: form.ssh_username || undefined,
-        ssh_key: form.ssh_key || undefined,
+        ssh_password: form.ssh_password || undefined,
         repo_path: form.repo_path || undefined,
         scan_mode: form.scan_mode,
         cared_paths: form.cared_paths
@@ -71,6 +104,39 @@ export default function AddWorkerModal({ onClose, onSuccess }: AddWorkerModalPro
               {error}
             </div>
           )}
+
+          {/* Deploy Public Key */}
+          <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold text-[#58a6ff] uppercase tracking-wider">
+                Deploy Public Key
+              </label>
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="flex items-center gap-1 text-[10px] text-[#8b949e] hover:text-[#e6edf3] transition-colors"
+              >
+                {copied ? <Check size={12} className="text-[#3fb950]" /> : <Copy size={12} />}
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+            <div className="text-[10px] text-[#8b949e] mb-2">
+              Run this command on your worker to authorize the deploy key:
+            </div>
+            <div className="relative">
+              <div className="w-full bg-[#010409] border border-[#30363d] rounded-lg px-3 py-2 text-[11px] text-[#c9d1d9] font-mono break-all">
+                {deployCommand}
+              </div>
+              <button
+                type="button"
+                onClick={handleCopyCommand}
+                className="absolute top-1.5 right-1.5 flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-[#161b22] text-[#8b949e] hover:text-[#e6edf3] transition-colors border border-[#30363d]"
+              >
+                {copiedCmd ? <Check size={10} className="text-[#3fb950]" /> : <Copy size={10} />}
+                {copiedCmd ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+          </div>
 
           <div>
             <label className="block text-xs font-semibold text-[#8b949e] uppercase tracking-wider mb-1.5">
@@ -127,14 +193,14 @@ export default function AddWorkerModal({ onClose, onSuccess }: AddWorkerModalPro
 
           <div>
             <label className="block text-xs font-semibold text-[#8b949e] uppercase tracking-wider mb-1.5">
-              SSH Private Key
+              SSH Password <span className="text-[#8b949e] font-normal normal-case">(optional)</span>
             </label>
-            <textarea
-              rows={4}
-              value={form.ssh_key}
-              onChange={e => handleChange('ssh_key', e.target.value)}
-              placeholder="-----BEGIN OPENSSH PRIVATE KEY-----\n..."
-              className="w-full bg-[#010409] border border-[#30363d] rounded-lg px-3 py-2 text-sm text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff] focus:ring-1 focus:ring-[#58a6ff]/30 transition-colors font-mono"
+            <input
+              type="password"
+              value={form.ssh_password}
+              onChange={e => handleChange('ssh_password', e.target.value)}
+              placeholder="Leave empty to use deploy key"
+              className="w-full bg-[#010409] border border-[#30363d] rounded-lg px-3 py-2 text-sm text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff] focus:ring-1 focus:ring-[#58a6ff]/30 transition-colors"
             />
           </div>
 

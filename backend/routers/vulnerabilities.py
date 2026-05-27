@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from backend.database import SessionLocal
-from backend.models.orm import Vulnerability, MemoryRule, User
+from backend.models.orm import Vulnerability, MemoryRule, User, Worker
 from backend.models.schemas import VulnerabilityResponse
 from backend.routers.auth import get_current_user, require_role
 
@@ -30,7 +30,18 @@ def list_vulnerabilities(
     query = db.query(Vulnerability)
 
     if user.role not in ("admin", "committer"):
-        query = query.filter(Vulnerability.assigned_to == user.id)
+        # Find all workers owned by this user
+        owned_worker_ids = [w.worker_id for w in db.query(Worker).filter(Worker.owner_id == user.id).all()]
+        from sqlalchemy import or_
+        if owned_worker_ids:
+            query = query.filter(
+                or_(
+                    Vulnerability.assigned_to == user.id,
+                    Vulnerability.worker_id.in_(owned_worker_ids)
+                )
+            )
+        else:
+            query = query.filter(Vulnerability.assigned_to == user.id)
 
     if status:
         query = query.filter(Vulnerability.status == status)
@@ -51,7 +62,15 @@ def get_vulnerability(
         raise HTTPException(status_code=404, detail="Vulnerability not found")
 
     if user.role not in ("admin", "committer") and vuln.assigned_to != user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to view this vulnerability")
+        # Check if the vulnerability belongs to a worker owned by the user
+        is_worker_owner = False
+        if vuln.worker_id:
+            worker = db.query(Worker).filter(Worker.worker_id == vuln.worker_id).first()
+            if worker and worker.owner_id == user.id:
+                is_worker_owner = True
+        
+        if not is_worker_owner:
+            raise HTTPException(status_code=403, detail="Not authorized to view this vulnerability")
 
     return vuln
 
