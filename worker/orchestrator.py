@@ -50,6 +50,7 @@ nga 交互方式:
 """
 
 import argparse
+import json
 import asyncio
 import logging
 import os
@@ -326,11 +327,17 @@ class OpenCodeOrchestrator:
         resume_file: Optional[str] = None,
     ):
         self.concurrency = concurrency
-        self.nga_bin = nga_bin
         self.session_timeout = session_timeout
         self.debug = debug
         self.web_port = web_port
         self.resume_file = resume_file
+
+        # Fallback for nga if not found in PATH
+        if nga_bin == "nga" and shutil.which("nga") is None:
+            local_nga = Path.home() / ".local" / "bin" / "nga"
+            if local_nga.exists():
+                nga_bin = str(local_nga)
+        self.nga_bin = nga_bin
 
         self.tasks: list[ScanTask] = []
         self.semaphore = asyncio.Semaphore(concurrency)
@@ -338,7 +345,7 @@ class OpenCodeOrchestrator:
         self._cancelled = False
 
         # 检查 ngaent 清理命令是否可用（用于清理 nga 残留的并发锁文件）
-        self._cleanup_available = shutil.which("ngaent") is not None
+        self._cleanup_available = shutil.which("ngaent") is not None or (Path.home() / ".local" / "bin" / "ngaent").exists()
         if self._cleanup_available:
             logger.debug("ngaent cleanup available")
         self.repo_path: Optional[Path] = None
@@ -470,13 +477,8 @@ class OpenCodeOrchestrator:
             return
         try:
             import json
-            worker_id = os.environ.get("WORKER_ID", "local")
-            if worker_id == "local":
-                # Local worker: publish to legacy channel only
-                await self._redis.publish(f"slot:{slot_id}:logs", json.dumps(data))
-            else:
-                # External worker: publish to worker-specific channel only
-                await self._redis.publish(f"slot:{worker_id}:{slot_id}:logs", json.dumps(data))
+            worker_id = os.environ.get("WORKER_ID", "unknown")
+            await self._redis.publish(f"slot:{worker_id}:{slot_id}:logs", json.dumps(data))
         except Exception as e:
             logger.debug(f"Redis push failed: {e}")
 
@@ -491,7 +493,11 @@ class OpenCodeOrchestrator:
         try:
             await self._http_client.post(
                 f"{self._backend_url}/api/jobs/{self._job_id}/progress",
-                json={"completed_files": completed, "failed_files": failed},
+                json={
+                    "completed_files": completed,
+                    "failed_files": failed,
+                    "total_files": len(self.tasks),
+                },
             )
         except Exception as e:
             logger.debug(f"Progress report failed: {e}")
@@ -544,6 +550,7 @@ class OpenCodeOrchestrator:
         all_files: list[str] = []
         c_extensions = (".c", ".cc", ".cpp", ".h", ".hpp")
         cwd = Path.cwd()
+        self.repo_path = cwd
 
         for fp in file_paths:
             path = Path(fp)
@@ -735,6 +742,9 @@ class OpenCodeOrchestrator:
         )
 
         tracker = ProgressTracker(len(self.tasks))
+
+        # 初始上报总文件数
+        await self._report_progress(0, 0)
 
         # 创建并发任务
         coros = [self._scan_one(task, tracker) for task in self.tasks]
@@ -944,7 +954,10 @@ class OpenCodeOrchestrator:
                 # Remove OPENAI_API_KEY so opencode does not default to gpt
                 # and instead uses the deepseek key from auth.json.
                 env.pop("OPENAI_API_KEY", None)
-                nga_cmd = [self.nga_bin, "run", message]
+                nga_cmd = [self.nga_bin, "run"]
+                if self.repo_path:
+                    nga_cmd.extend(["--dir", str(self.repo_path)])
+                nga_cmd.append(message)
                 model = env.get("OPENCODE_MODEL")
                 if model:
                     nga_cmd.extend(["--model", model])
@@ -955,6 +968,7 @@ class OpenCodeOrchestrator:
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                     env=env,
+                    cwd=str(self.repo_path) if self.repo_path else None,
                 )
 
                 stdout_chunks: list[str] = []

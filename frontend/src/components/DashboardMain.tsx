@@ -70,16 +70,9 @@ export default function DashboardMain({
   workers: WorkerInfo[];
   workerSlots: Record<string, SlotState[]>;
 }) {
-  const localSlots = workerSlots['local'] || [];
-  const localRunning = localSlots.filter((s: any) => s.status === 'running').length;
-  const localStatus = localRunning > 0 ? 'running' : 'idle';
+  const allWorkers: WorkerInfo[] = workers;
 
-  const allWorkers: WorkerInfo[] = [
-    { id: 'local', worker_id: 'local', hostname: 'localhost', ip_address: '127.0.0.1', status: localStatus },
-    ...workers.filter(w => w.worker_id !== 'local'),
-  ];
-
-  const [selectedWorkerId, setSelectedWorkerId] = useState<string>('local');
+  const [selectedWorkerId, setSelectedWorkerId] = useState<string>(workers[0]?.worker_id || '');
   const [gitStats, setGitStats] = useState<Record<string, WorkerGitStats>>({});
   const [schedules, setSchedules] = useState<Record<string, WorkerSchedule>>({});
   const [editingSchedule, setEditingSchedule] = useState(false);

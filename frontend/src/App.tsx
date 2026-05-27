@@ -52,11 +52,8 @@ function AppContent({
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
   const [isScanning, setIsScanning] = useState(false);
-  const [workerSlots, setWorkerSlots] = useState<Record<string, SlotState[]>>({
-    local: createEmptySlots(),
-  });
+  const [workerSlots, setWorkerSlots] = useState<Record<string, SlotState[]>>({});
   const [workers, setWorkers] = useState<any[]>([]);
-  const [localWorkerShowThinking, setLocalWorkerShowThinking] = useState(true);
   const [activeConnections, setActiveConnections] = useState(0);
   const [uptime, setUptime] = useState(0);
   const [scanMetrics, setScanMetrics] = useState({ totalFiles: 0, sastFindings: 0, llmFindings: 0 });
@@ -77,11 +74,7 @@ function AppContent({
     return () => clearInterval(interval);
   }, []);
 
-  // Build unified workers list including local with its frontend-managed show_thinking
-  const allWorkers = [
-    { worker_id: 'local', hostname: 'localhost', ip_address: '127.0.0.1', status: 'idle', show_thinking: localWorkerShowThinking },
-    ...workers.filter((w: any) => w.worker_id !== 'local'),
-  ];
+  const allWorkers = workers;
 
   const shouldShowThinking = (workerId: string) => {
     if (!user?.show_thinking) return false;
@@ -110,6 +103,7 @@ function AppContent({
       };
 
       es.onmessage = (e) => {
+        console.log('[SSE MSG]', workerId, slotId, e.data);
         try {
           const msg = JSON.parse(e.data);
 
@@ -178,14 +172,6 @@ function AppContent({
   };
 
   useEffect(() => {
-    connectWorkerSSE('local', '/api/sse');
-    return () => {
-      disconnectWorkerSSE('local');
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ansiRenderer]);
-
-  useEffect(() => {
     const loadWorkers = () => {
       fetchWorkers()
         .then(data => {
@@ -200,12 +186,11 @@ function AppContent({
             return newMap;
           });
           data.forEach((w: any) => {
-            if (w.worker_id !== 'local') {
-              connectWorkerSSE(w.worker_id, `/api/sse/${w.worker_id}`);
-            }
+            const sseBase = import.meta.env.DEV ? 'http://localhost:3000' : '';
+            connectWorkerSSE(w.worker_id, `${sseBase}/api/sse/${w.worker_id}`);
           });
           Object.keys(workerEventSources.current).forEach(id => {
-            if (id !== 'local' && !data.find((w: any) => w.worker_id === id)) {
+            if (!data.find((w: any) => w.worker_id === id)) {
               disconnectWorkerSSE(id);
             }
           });
@@ -239,16 +224,16 @@ function AppContent({
         repo_path: '.',
         mode: 'files',
         file_paths: [
-          'src/wireless/timer_manager.c',
-          'src/memory_pool.cpp',
-          'src/mac/scheduler.c',
-          'src/network/tcp_handler.c',
-          'src/crypto/aes_gcm.c',
-          'src/drivers/spi_controller.c',
-          'src/utils/ring_buffer.c',
-          'src/protocol/http_parser.c',
-          'src/security/auth_manager.c',
-          'src/utils/logger.c',
+          'wireless/timer_manager.c',
+          'memory_pool.cpp',
+          'mac/scheduler.c',
+          'network/tcp_handler.c',
+          'crypto/aes_gcm.c',
+          'drivers/spi_controller.c',
+          'utils/ring_buffer.c',
+          'protocol/http_parser.c',
+          'security/auth_manager.c',
+          'utils/logger.c',
         ],
       });
       const updated = await fetchJobs();
@@ -360,7 +345,7 @@ function AppContent({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#06090e]">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#06090e] overflow-hidden">
         {currentView === 'vulnerabilities' ? (
           <VulnerabilityCenter workers={workers} jobs={jobs} />
         ) : currentView === 'dashboard' ? (
@@ -383,10 +368,6 @@ function AppContent({
               workerSlots={workerSlots}
               onNodeClick={handleNodeClick}
               onUpdateWorkerShowThinking={async (workerId, show) => {
-                if (workerId === 'local') {
-                  setLocalWorkerShowThinking(show);
-                  return;
-                }
                 try {
                   await updateWorkerShowThinking(workerId, show);
                   setWorkers(current => current.map(w => w.worker_id === workerId ? { ...w, show_thinking: show } : w));
@@ -404,10 +385,6 @@ function AppContent({
           />
         ) : currentView === 'fleet' ? (
           <WorkerFleet activeConnections={activeConnections} onNodeClick={handleNodeClick} workers={allWorkers} workerSlots={workerSlots} onUpdateWorkerShowThinking={async (workerId, show) => {
-            if (workerId === 'local') {
-              setLocalWorkerShowThinking(show);
-              return;
-            }
             try {
               await updateWorkerShowThinking(workerId, show);
               setWorkers(current => current.map(w => w.worker_id === workerId ? { ...w, show_thinking: show } : w));

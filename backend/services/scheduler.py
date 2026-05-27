@@ -203,9 +203,14 @@ async def _run_worker_scan(worker_id: str):
 
         # Check if worker is online (heartbeat within 2 minutes)
         now = datetime.now(timezone.utc)
-        if worker.last_heartbeat and (now - worker.last_heartbeat).total_seconds() > 120:
-            logger.warning(f"Worker {worker_id} offline (no heartbeat), skipping scan")
-            return
+        if worker.last_heartbeat:
+            if worker.last_heartbeat.tzinfo is None:
+                diff = (now.replace(tzinfo=None) - worker.last_heartbeat).total_seconds()
+            else:
+                diff = (now - worker.last_heartbeat).total_seconds()
+            if diff > 120:
+                logger.warning(f"Worker {worker_id} offline (no heartbeat), skipping scan")
+                return
 
         # Create Job
         repo_path = worker.repo_path or "."

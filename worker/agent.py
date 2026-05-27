@@ -46,6 +46,16 @@ try:
 except ImportError:
     parse_vulnerability_report = None  # type: ignore
 
+# Try importing git stats utilities
+try:
+    from worker.git_sync import get_head_commit, get_cpp_file_count
+except ImportError:
+    try:
+        from git_sync import get_head_commit, get_cpp_file_count
+    except ImportError:
+        get_head_commit = None
+        get_cpp_file_count = None
+
 app = FastAPI()
 
 # Load config from ~/.opencode-agent/config.json
@@ -103,16 +113,103 @@ async def _register():
         print(f"[Agent] Register failed: {e}")
 
 
+def get_node_git_stats(repo_path: str) -> dict:
+    stats = {
+        "head_commit": None,
+        "added_files": 0,
+        "modified_files": 0,
+        "deleted_files": 0,
+        "changed_lines": 0,
+        "total_cpp_files": 0,
+    }
+    try:
+        # 1. Get HEAD commit
+        if get_head_commit:
+            stats["head_commit"] = get_head_commit(repo_path)
+        
+        # 2. Get Total C/C++ files
+        if get_cpp_file_count:
+            stats["total_cpp_files"] = get_cpp_file_count(repo_path)
+        
+        # 3. Get changed files (staged & unstaged)
+        result = subprocess.run(
+            ["git", "-C", repo_path, "status", "--porcelain"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=10,
+        )
+        if result.returncode == 0:
+            added = 0
+            modified = 0
+            deleted = 0
+            for line in result.stdout.splitlines():
+                if not line.strip():
+                    continue
+                status = line[:2]
+                filename = line[3:].strip()
+                if filename.endswith((".c", ".cc", ".cpp", ".h", ".hpp")):
+                    if "A" in status or "?" in status:
+                        added += 1
+                    elif "M" in status or "R" in status:
+                        modified += 1
+                    elif "D" in status:
+                        deleted += 1
+            stats["added_files"] = added
+            stats["modified_files"] = modified
+            stats["deleted_files"] = deleted
+            
+        # 4. Get changed lines (diff)
+        diff_result = subprocess.run(
+            ["git", "-C", repo_path, "diff", "--numstat"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=10,
+        )
+        if diff_result.returncode == 0:
+            lines = 0
+            for line in diff_result.stdout.splitlines():
+                if not line.strip():
+                    continue
+                parts = line.split()
+                if len(parts) >= 3:
+                    try:
+                        lines += int(parts[0]) + int(parts[1])
+                    except ValueError:
+                        pass
+            stats["changed_lines"] = lines
+            
+    except Exception as e:
+        print(f"[Agent] Failed to get local git stats: {e}")
+    return stats
+
+
 async def _heartbeat_loop():
     """Send heartbeat every 30 seconds."""
     while True:
         await asyncio.sleep(30)
         try:
             status = "running" if _is_orchestrator_running() else "idle"
+            git_stats = get_node_git_stats(REPO_PATH)
+            
+            payload = {
+                "status": status,
+                "current_job_id": _current_job_id,
+                "head_commit": git_stats["head_commit"],
+                "added_files": git_stats["added_files"],
+                "modified_files": git_stats["modified_files"],
+                "deleted_files": git_stats["deleted_files"],
+                "changed_lines": git_stats["changed_lines"],
+                "total_cpp_files": git_stats["total_cpp_files"],
+            }
+            
             async with httpx.AsyncClient(timeout=10.0) as client:
                 await client.post(
                     f"{BACKEND_URL}/api/workers/{WORKER_ID}/heartbeat",
-                    json={"status": status, "current_job_id": _current_job_id},
+                    json=payload,
                 )
         except Exception as e:
             print(f"[Agent] Heartbeat failed: {e}")
@@ -156,7 +253,27 @@ async def start_scan(payload: dict):
     if not orch_path.exists():
         orch_path = Path(__file__).parent.parent / "orchestrator.py"
 
-    cmd = ["python3", str(orch_path), f"--{mode}", "--repo", repo_path, "-c", "3"]
+    # Build orchestrator command based on mode
+    cmd = ["python3", str(orch_path), "--repo", repo_path, "-c", "3"]
+    if mode == "full":
+        cmd.append("--full")
+    elif mode == "diff":
+        target_commit = payload.get("target_commit")
+        if not target_commit:
+            return {"ok": False, "error": "target_commit required for diff mode"}
+        cmd.extend(["--diff", target_commit])
+    elif mode == "files":
+        file_paths = payload.get("file_paths")
+        if not file_paths:
+            return {"ok": False, "error": "file_paths required for files mode"}
+        if isinstance(file_paths, str):
+            file_paths = [fp.strip() for fp in file_paths.split(",") if fp.strip()]
+        # Strip leading 'src/' from paths to match the worker's repository root structure
+        file_paths = [fp[4:] if fp.startswith("src/") else fp for fp in file_paths]
+        cmd.append("--files")
+        cmd.extend(file_paths)
+    else:
+        return {"ok": False, "error": f"Unknown mode: {mode}"}
 
     log_path = Path.home() / ".opencode-agent" / "logs" / f"orchestrator-{job_id}.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -166,6 +283,7 @@ async def start_scan(payload: dict):
         cmd, env=env,
         stdout=open(log_path, "w"),
         stderr=subprocess.STDOUT,
+        cwd=repo_path,
     )
 
     global _current_job_id
@@ -211,12 +329,23 @@ async def _monitor_scan(job_id: str, report_dir: str):
                 except Exception:
                     pass
 
-            tasks.append({
+            task_data = {
                 "file_path": relative,
                 "status": task_status,
                 "report_file": str(md_file),
                 "log_file": str(log_file) if log_file.exists() else None,
-            })
+            }
+            # Include file contents so backend can store reports locally
+            try:
+                task_data["report_content"] = md_file.read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+            if log_file.exists():
+                try:
+                    task_data["log_content"] = log_file.read_text(encoding="utf-8", errors="replace")
+                except Exception:
+                    pass
+            tasks.append(task_data)
 
             if parse_vulnerability_report:
                 try:
@@ -275,6 +404,28 @@ atexit.register(_cleanup_orchestrator)
 @app.on_event("startup")
 async def on_startup():
     await _register()
+    # Initial heartbeat immediately on startup
+    try:
+        status = "running" if _is_orchestrator_running() else "idle"
+        git_stats = get_node_git_stats(REPO_PATH)
+        payload = {
+            "status": status,
+            "current_job_id": _current_job_id,
+            "head_commit": git_stats["head_commit"],
+            "added_files": git_stats["added_files"],
+            "modified_files": git_stats["modified_files"],
+            "deleted_files": git_stats["deleted_files"],
+            "changed_lines": git_stats["changed_lines"],
+            "total_cpp_files": git_stats["total_cpp_files"],
+        }
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            await client.post(
+                f"{BACKEND_URL}/api/workers/{WORKER_ID}/heartbeat",
+                json=payload,
+            )
+    except Exception as e:
+        print(f"[Agent] Initial heartbeat failed: {e}")
+
     global _heartbeat_task
     _heartbeat_task = asyncio.create_task(_heartbeat_loop())
 

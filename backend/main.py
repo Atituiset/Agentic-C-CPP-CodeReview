@@ -5,11 +5,12 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 from backend.database import engine, Base
 from backend.redis_client import get_redis, close_redis
 from backend.routers import jobs, sse, slots, reports, workers, auth, users, vulnerabilities, memory
-from backend.services.worker import worker_loop
+from backend.services.dispatcher import dispatcher_loop
 from backend.services.scheduler import get_scheduler
 
 
@@ -23,6 +24,10 @@ async def lifespan(app: FastAPI):
     os.makedirs(PROJECT_ROOT / "data", exist_ok=True)
     os.makedirs(PROJECT_ROOT / "reports", exist_ok=True)
     Base.metadata.create_all(bind=engine)
+
+    # Ensure deploy key exists
+    from backend.services.deploy_key import ensure_deploy_key
+    ensure_deploy_key()
 
     # Seed default admin if no users exist
     from backend.database import SessionLocal
@@ -49,15 +54,15 @@ async def lifespan(app: FastAPI):
     scheduler = get_scheduler()
     await scheduler.start()
 
-    # Start background worker
-    worker_task = asyncio.create_task(worker_loop())
+    # Start background dispatcher (forwards Redis queue jobs to remote workers)
+    dispatcher_task = asyncio.create_task(dispatcher_loop())
 
     yield
 
     # Shutdown
-    worker_task.cancel()
+    dispatcher_task.cancel()
     try:
-        await worker_task
+        await dispatcher_task
     except asyncio.CancelledError:
         pass
     await scheduler.shutdown()
@@ -65,6 +70,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Agentic CodeReview Platform", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(jobs.router)
 app.include_router(sse.router)

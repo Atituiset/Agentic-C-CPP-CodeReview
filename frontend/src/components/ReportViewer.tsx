@@ -157,27 +157,39 @@ export default function ReportViewer({ jobId, onBack }: ReportViewerProps) {
             ) : filteredReports.length === 0 ? (
               <div className="px-4 py-4 text-xs text-[#8b949e]">No reports match your filter.</div>
             ) : (
-              filteredReports.map((report) => (
-                <button
-                  key={report.path}
-                  onClick={() => setSelectedReport(report.path)}
-                  className={`w-full text-left px-4 py-3 text-sm border-b border-[#30363d]/50 transition-colors ${
-                    selectedReport === report.path
-                      ? 'bg-[#21262d] text-[#e6edf3] border-l-2 border-l-[#58a6ff]'
-                      : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    {report.type === 'log' ? (
-                      <ScrollText size={14} className="text-[#d29922] shrink-0" />
-                    ) : (
-                      <FileText size={14} className="text-[#58a6ff] shrink-0" />
-                    )}
-                    <span className="font-medium truncate">{report.filename}</span>
-                  </div>
-                  <div className="text-[10px] text-[#8b949e] mt-0.5 pl-6">{(report.size / 1024).toFixed(1)} KB</div>
-                </button>
-              ))
+              filteredReports.map((report) => {
+                const isFailed = report.status === 'failed';
+                return (
+                  <button
+                    key={report.path}
+                    onClick={() => setSelectedReport(report.path)}
+                    className={`w-full text-left px-4 py-3 text-sm border-b border-[#30363d]/50 transition-colors ${
+                      selectedReport === report.path
+                        ? 'bg-[#21262d] text-[#e6edf3] border-l-2 border-l-[#58a6ff]'
+                        : isFailed
+                        ? 'text-[#f85149] bg-[#f85149]/5 hover:bg-[#f85149]/10 hover:text-[#ff7b72]'
+                        : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {report.type === 'log' ? (
+                          <ScrollText size={14} className={`shrink-0 ${isFailed ? 'text-[#f85149]' : 'text-[#d29922]'}`} />
+                        ) : (
+                          <FileText size={14} className={`shrink-0 ${isFailed ? 'text-[#f85149]' : 'text-[#58a6ff]'}`} />
+                        )}
+                        <span className={`font-medium truncate ${isFailed ? 'text-[#ff7b72]' : ''}`}>{report.filename}</span>
+                      </div>
+                      {isFailed && (
+                        <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-[#f85149]/20 border border-[#f85149]/30 text-[#ff7b72] shrink-0">
+                          Failed
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-[#8b949e] mt-0.5 pl-6">{(report.size / 1024).toFixed(1)} KB</div>
+                  </button>
+                );
+              })
             )}
           </div>
         </div>
@@ -226,6 +238,17 @@ export default function ReportViewer({ jobId, onBack }: ReportViewerProps) {
                     )}
                   </div>
                 </div>
+                {reports.find(r => r.path === selectedReport)?.status === 'failed' && (
+                  <div className="px-6 py-4 bg-[#f85149]/10 border-b border-[#f85149]/20 text-xs sm:text-sm text-[#ff7b72] flex items-start gap-2.5">
+                    <span className="text-base leading-none">⚠️</span>
+                    <div>
+                      <div className="font-semibold mb-0.5">Scan Execution Failure</div>
+                      <div className="text-[11px] sm:text-xs text-[#8b949e] leading-normal">
+                        The review scan for this file encountered a runtime error. Check the execution logs below for debug traceback and compiler error output.
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="p-6 prose prose-invert prose-sm max-w-none">
                   <pre className="whitespace-pre-wrap font-mono text-[13px] leading-relaxed text-[#c9d1d9]">
                     {highlightedContent}

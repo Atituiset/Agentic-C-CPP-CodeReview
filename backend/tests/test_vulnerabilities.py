@@ -280,3 +280,59 @@ async def test_assign_vulnerability(admin_user, regular_user, sample_vulnerabili
         assert response.status_code == 200
         data = response.json()
         assert data["assigned_to"] == regular_user.id
+
+
+@pytest.mark.asyncio
+async def test_user_can_view_vulnerability_from_owned_worker(regular_user):
+    from backend.main import app
+    from backend.models.orm import Worker, Vulnerability
+
+    # 1. Create a worker owned by regular_user
+    db = SessionLocal()
+    worker = Worker(
+        worker_id="owned-worker-123",
+        owner_id=regular_user.id,
+        deploy_status="completed"
+    )
+    db.add(worker)
+    db.commit()
+
+    # 2. Create a vulnerability from that worker
+    vuln = Vulnerability(
+        job_id="job-owned",
+        worker_id="owned-worker-123",
+        vuln_id="VULN-OWNED",
+        file_path="src/owned.c",
+        severity="Low",
+        vuln_type="test",
+        title="Vulnerability from owned worker",
+        status="open",
+    )
+    db.add(vuln)
+    db.commit()
+
+    worker_id = worker.id
+    vuln_id = vuln.id
+    db.close()
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        token = await _login(client, "vulnuser", "user123")
+
+        # 3. List vulnerabilities (should include this vuln)
+        resp_list = await client.get("/api/vulnerabilities", headers={"Authorization": f"Bearer {token}"})
+        assert resp_list.status_code == 200
+        items = resp_list.json()
+        assert any(item["id"] == vuln_id for item in items)
+
+        # 4. Get vulnerability detail (should succeed)
+        resp_detail = await client.get(f"/api/vulnerabilities/{vuln_id}", headers={"Authorization": f"Bearer {token}"})
+        assert resp_detail.status_code == 200
+        assert resp_detail.json()["id"] == vuln_id
+
+    # Cleanup
+    db = SessionLocal()
+    db.query(Vulnerability).filter(Vulnerability.id == vuln_id).delete()
+    db.query(Worker).filter(Worker.id == worker_id).delete()
+    db.commit()
+    db.close()

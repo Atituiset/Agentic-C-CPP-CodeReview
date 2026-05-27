@@ -8,7 +8,7 @@ from backend.models.orm import Worker, Job, Task, WorkerGitStatus, WorkerSchedul
 from backend.models.schemas import (
     WorkerRegister, WorkerHeartbeat, WorkerResponse,
     WorkerGitStatusResponse, WorkerScheduleConfigResponse, WorkerScheduleConfigUpdate,
-    WorkerCreate,
+    WorkerCreate, WorkerUpdate,
 )
 from backend.routers.auth import get_current_user
 
@@ -59,13 +59,10 @@ async def register_worker(
     worker_id: str,
     payload: WorkerRegister,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
-    """Register a new worker node."""
+    """Register a new worker node. Called by the Agent itself - no auth required."""
     existing = db.query(Worker).filter(Worker.worker_id == worker_id).first()
     if existing:
-        if existing.owner_id != current_user.id and current_user.role not in ("admin", "committer"):
-            raise HTTPException(status_code=403, detail="Not your worker")
         existing.hostname = payload.hostname
         existing.ip_address = payload.ip_address
         existing.status = "idle"
@@ -84,7 +81,6 @@ async def register_worker(
         status="idle",
         last_heartbeat=datetime.now(timezone.utc),
         capabilities=json.dumps(payload.capabilities) if payload.capabilities else None,
-        owner_id=current_user.id,
         deploy_status="deployed",
     )
     db.add(worker)
@@ -146,9 +142,22 @@ async def list_workers(
     """List all registered workers."""
     query = db.query(Worker)
     if current_user.role == "user":
-        query = query.filter(Worker.owner_id == current_user.id)
+        from sqlalchemy import or_
+        query = query.filter(
+            or_(
+                Worker.owner_id == current_user.id,
+                Worker.owner_id.is_(None)
+            )
+        )
     workers = query.order_by(Worker.registered_at.desc()).all()
     return [WorkerResponse.model_validate(_worker_to_dict(w)) for w in workers]
+
+
+@router.get("/api/workers/deploy-key")
+async def get_deploy_key():
+    """Return the backend's SSH deploy public key for users to add to authorized_keys."""
+    from backend.services.deploy_key import get_public_key
+    return {"public_key": get_public_key()}
 
 
 @router.get("/api/workers/{worker_id}")
@@ -161,7 +170,7 @@ async def get_worker(
     worker = db.query(Worker).filter(Worker.worker_id == worker_id).first()
     if not worker:
         raise HTTPException(status_code=404, detail="Worker not found")
-    if worker.owner_id != current_user.id and current_user.role not in ("admin", "committer"):
+    if worker.owner_id is not None and worker.owner_id != current_user.id and current_user.role not in ("admin", "committer"):
         raise HTTPException(status_code=403, detail="Not your worker")
     return WorkerResponse.model_validate(_worker_to_dict(worker))
 
@@ -247,7 +256,7 @@ async def get_worker_schedule(
     worker = db.query(Worker).filter(Worker.worker_id == worker_id).first()
     if not worker:
         raise HTTPException(status_code=404, detail="Worker not found")
-    if worker.owner_id != current_user.id and current_user.role not in ("admin", "committer"):
+    if worker.owner_id is not None and worker.owner_id != current_user.id and current_user.role not in ("admin", "committer"):
         raise HTTPException(status_code=403, detail="Not your worker")
     schedule = db.query(WorkerScheduleConfig).filter(WorkerScheduleConfig.worker_id == worker_id).first()
     if not schedule:
@@ -337,6 +346,7 @@ async def create_worker(
         ssh_port=payload.ssh_port,
         ssh_username=payload.ssh_username,
         ssh_key=payload.ssh_key,
+        ssh_password=payload.ssh_password,
         repo_path=payload.repo_path,
         scan_mode=payload.scan_mode,
         target_commit=payload.target_commit,
@@ -364,3 +374,96 @@ async def deploy_worker_endpoint(
 
     background_tasks.add_task(do_deploy, worker_id)
     return {"ok": True, "message": "Deployment started"}
+
+
+@router.get("/api/workers/deploy-key")
+async def get_deploy_key():
+    """Return the backend's SSH deploy public key for users to add to authorized_keys."""
+    from backend.services.deploy_key import get_public_key
+    return {"public_key": get_public_key()}
+
+
+# ------------------------------------------------------------------
+# Deploy Logs
+# ------------------------------------------------------------------
+
+@router.get("/api/workers/{worker_id}/deploy-logs")
+async def get_worker_deploy_logs(
+    worker_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get deployment logs for a worker."""
+    worker = db.query(Worker).filter(Worker.worker_id == worker_id).first()
+    if not worker:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    if worker.owner_id != current_user.id and current_user.role not in ("admin", "committer"):
+        raise HTTPException(status_code=403, detail="Not your worker")
+    logs = []
+    if worker.deploy_logs:
+        try:
+            logs = json.loads(worker.deploy_logs)
+        except Exception:
+            pass
+    return {"logs": logs, "deploy_status": worker.deploy_status, "deploy_error": worker.deploy_error}
+
+
+# ------------------------------------------------------------------
+# Edit Worker
+# ------------------------------------------------------------------
+
+@router.put("/api/workers/{worker_id}")
+async def update_worker(
+    worker_id: str,
+    payload: WorkerUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update worker configuration (SSH, repo, scan settings)."""
+    worker = db.query(Worker).filter(Worker.worker_id == worker_id).first()
+    if not worker:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    if worker.owner_id != current_user.id and current_user.role not in ("admin", "committer"):
+        raise HTTPException(status_code=403, detail="Not your worker")
+
+    if payload.ssh_host is not None:
+        worker.ssh_host = payload.ssh_host
+    if payload.ssh_port is not None:
+        worker.ssh_port = payload.ssh_port
+    if payload.ssh_username is not None:
+        worker.ssh_username = payload.ssh_username
+    if payload.ssh_password is not None:
+        worker.ssh_password = payload.ssh_password
+    if payload.repo_path is not None:
+        worker.repo_path = payload.repo_path
+    if payload.scan_mode is not None:
+        worker.scan_mode = payload.scan_mode
+    if payload.target_commit is not None:
+        worker.target_commit = payload.target_commit
+    if payload.cared_paths is not None:
+        worker.cared_paths = json.dumps(payload.cared_paths) if payload.cared_paths else None
+
+    db.commit()
+    db.refresh(worker)
+    return WorkerResponse.model_validate(_worker_to_dict(worker))
+
+
+@router.delete("/api/workers/{worker_id}")
+async def delete_worker(
+    worker_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete a worker and its related configuration."""
+    worker = db.query(Worker).filter(Worker.worker_id == worker_id).first()
+    if not worker:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    if worker.owner_id != current_user.id and current_user.role not in ("admin", "committer"):
+        raise HTTPException(status_code=403, detail="Not your worker")
+
+    # Clean up related records
+    db.query(WorkerScheduleConfig).filter(WorkerScheduleConfig.worker_id == worker_id).delete()
+    db.query(WorkerGitStatus).filter(WorkerGitStatus.worker_id == worker_id).delete()
+    db.delete(worker)
+    db.commit()
+    return {"ok": True, "message": f"Worker {worker_id} deleted"}

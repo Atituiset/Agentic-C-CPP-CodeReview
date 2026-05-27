@@ -1,4 +1,5 @@
 import json
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,6 +11,7 @@ from backend.models.orm import Job, Task, Vulnerability
 from backend.redis_client import push_job_queue
 from backend.services.git_sync import get_all_cpp_files, get_head_commit, get_changes_since
 from backend.services.scheduler import get_scheduler
+from backend.services.report_parser import parse_vulnerability_report
 
 router = APIRouter()
 
@@ -41,6 +43,7 @@ def _job_to_response(job: Job) -> JobResponse:
         "created_at": job.created_at,
         "started_at": job.started_at,
         "completed_at": job.completed_at,
+        "worker_id": job.assigned_worker_id,
     }
     return JobResponse.model_validate(data)
 
@@ -130,6 +133,7 @@ async def update_job_progress(job_id: str, payload: dict, db: Session = Depends(
         raise HTTPException(status_code=404, detail="Job not found")
     job.completed_files = payload.get("completed_files", job.completed_files)
     job.failed_files = payload.get("failed_files", job.failed_files)
+    job.total_files = payload.get("total_files", job.total_files)
     db.commit()
     return {"ok": True, "job_id": job_id}
 
@@ -177,19 +181,67 @@ async def finalize_job(
     job.completed_files = payload.completed_files
     job.failed_files = payload.failed_files
 
-    # Bulk create Tasks
+    # Create local report directory and write report contents from agent
+    from pathlib import Path
+    report_dir = Path("reports").resolve() / job_id
+    report_dir.mkdir(parents=True, exist_ok=True)
+    job.report_dir = str(report_dir)
+
+    # Bulk create Tasks and write report files locally
     for task_data in (payload.tasks or []):
+        rel_path = task_data.get("file_path", "")
+        task_id = str(uuid.uuid4())
         task = Task(
+            id=task_id,
             job_id=job_id,
             worker_id=payload.worker_id,
-            file_path=task_data.get("file_path", ""),
+            file_path=rel_path,
             status=task_data.get("status", "done"),
             report_file=task_data.get("report_file"),
             log_file=task_data.get("log_file"),
         )
         db.add(task)
 
-    # Bulk create Vulnerabilities
+        # Write report content to local filesystem for ReportViewer
+        if task_data.get("report_content"):
+            md_path = report_dir / f"{rel_path}.md"
+            md_path.parent.mkdir(parents=True, exist_ok=True)
+            md_path.write_text(task_data["report_content"], encoding="utf-8")
+
+            # Centralized parsing on backend!
+            try:
+                records = parse_vulnerability_report(
+                    task_data["report_content"],
+                    job_id=job_id,
+                    task_id=task_id,
+                    worker_id=payload.worker_id,
+                )
+                for vuln_data in records:
+                    vuln = Vulnerability(
+                        job_id=job_id,
+                        task_id=task_id,
+                        worker_id=payload.worker_id,
+                        vuln_id=vuln_data.get("vuln_id", "VULN-UNKNOWN"),
+                        file_path=vuln_data.get("file_path") or rel_path,
+                        line_start=vuln_data.get("line_start"),
+                        line_end=vuln_data.get("line_end"),
+                        severity=vuln_data.get("severity", "Medium"),
+                        vuln_type=vuln_data.get("vuln_type", "nga_semantic"),
+                        title=vuln_data.get("title", "Unknown vulnerability"),
+                        description=vuln_data.get("description"),
+                        raw_json=vuln_data.get("raw_json"),
+                    )
+                    db.add(vuln)
+            except Exception as e:
+                import logging
+                logging.getLogger("jobs").error(f"Failed to parse vulnerabilities from {rel_path}: {e}")
+
+        if task_data.get("log_content"):
+            log_path = report_dir / f"{rel_path}.log"
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.write_text(task_data["log_content"], encoding="utf-8")
+
+    # Bulk create Vulnerabilities (from payload if any)
     for vuln_data in (payload.vulnerabilities or []):
         vuln = Vulnerability(
             job_id=job_id,

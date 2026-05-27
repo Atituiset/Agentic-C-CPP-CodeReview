@@ -84,12 +84,13 @@ async def process_job(job_id: str):
         progress_task = asyncio.create_task(_poll_job_progress(db, job, report_dir, stop_event))
 
         try:
+            job_file_paths = json.loads(job.file_paths) if job.file_paths else None
             proc = await run_orchestrator(
                 job_id=job.id,
                 repo_path=job.repo_path,
                 mode=job.mode,
                 target_commit=job.target_commit,
-                file_paths=None,
+                file_paths=job_file_paths,
                 report_dir=str(report_dir),
                 resume_file=None,
                 resume_from_dir=env_resume_dir,
@@ -130,6 +131,7 @@ async def process_job(job_id: str):
             db.commit()
             raise
         except Exception as e:
+            logger.error(f"[process_job] Job {job_id} failed: {e}", exc_info=True)
             job.status = "failed"
         finally:
             scheduler.clear_cancel()
@@ -216,7 +218,7 @@ def scan_reports(db, job: Job, report_dir: Path):
         task = Task(
             job_id=job.id,
             file_path=str(relative.with_suffix("")),
-            worker_id="local",
+            worker_id=os.environ.get("WORKER_ID", "unknown"),
             status=task_status,
             report_file=str(md_file),
             log_file=str(log_file) if log_file.exists() else None,

@@ -38,8 +38,8 @@ async def test_publish_log():
     reset_redis_pool()
     redis = await get_redis()
     pubsub = redis.pubsub()
-    await pubsub.subscribe("slot:0:logs")
-    await publish_log(0, {"type": "stdout", "content": "test"})
+    await pubsub.subscribe("slot:test-worker:0:logs")
+    await publish_log(0, {"type": "stdout", "content": "test"}, worker_id="test-worker")
 
     message = None
     async for msg in pubsub.listen():
@@ -50,15 +50,17 @@ async def test_publish_log():
     data = json.loads(message)
     assert data["type"] == "stdout"
     assert data["content"] == "test"
-    await pubsub.unsubscribe("slot:0:logs")
+    await pubsub.unsubscribe("slot:test-worker:0:logs")
     await close_redis()
 
 
 @pytest.mark.asyncio
 async def test_job_queue():
-    from backend.redis_client import push_job_queue, pop_job_queue, close_redis, reset_redis_pool
+    from backend.redis_client import push_job_queue, pop_job_queue, close_redis, reset_redis_pool, get_redis
 
     reset_redis_pool()
+    redis = await get_redis()
+    await redis.delete("scan:job:queue")
     await push_job_queue("job-test-1")
     result = await pop_job_queue(timeout=1)
     assert result == "job-test-1"

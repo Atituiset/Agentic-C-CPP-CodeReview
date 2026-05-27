@@ -24,6 +24,8 @@ class JobResponse(BaseModel):
     created_at: Optional[datetime] = None
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
+    worker_id: Optional[str] = None
+    dispatch_error: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -235,8 +237,20 @@ class WorkerCreate(BaseModel):
     ssh_port: int = 22
     ssh_username: Optional[str] = None
     ssh_key: Optional[str] = None
+    ssh_password: Optional[str] = None
     repo_path: Optional[str] = None
     scan_mode: str = Field(default="full", pattern="^(full|diff)$")
+    target_commit: Optional[str] = None
+    cared_paths: Optional[List[str]] = None
+
+
+class WorkerUpdate(BaseModel):
+    ssh_host: Optional[str] = None
+    ssh_port: Optional[int] = None
+    ssh_username: Optional[str] = None
+    ssh_password: Optional[str] = None
+    repo_path: Optional[str] = None
+    scan_mode: Optional[str] = Field(default=None, pattern="^(full|diff)$")
     target_commit: Optional[str] = None
     cared_paths: Optional[List[str]] = None
 
