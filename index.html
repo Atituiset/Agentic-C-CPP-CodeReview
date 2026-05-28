@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-5dc748b6.js";
+            window.path_to_searchindex_js = "searchindex-215a8a91.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-4550dfc0.js"></script>
+        <script src="toc-97335460.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -181,25 +181,20 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="combinate-agentic-review"><a class="header" href="#combinate-agentic-review">Combinate Agentic Review</a></h1>
-<p><strong>企业级 C/C++ 仓库 AI 自动化代码审计平台</strong></p>
-<p><img src="./images/dashboard-main.png" alt="Dashboard 截图"></p>
-<p><img src="./images/login.gif" alt="操作演示"></p>
+<p><strong>AI 驱动的无线通信系统代码安全审计平台</strong></p>
 <h2 id="项目定位"><a class="header" href="#项目定位">项目定位</a></h2>
-<p>Combinate Agentic Review 是一个融合了两个先前项目的 AI 代码审计平台：</p>
-<ul>
-<li><strong>Agentic-C-CPP-CodeReview</strong> — React 仪表盘，用于展示代码审计结果</li>
-<li><strong>event-loop-agent</strong> — Python 扫描引擎，使用 <code>nga</code> (OpenCode Agent) CLI 对 C/C++ 仓库进行并行逐文件 AI 代码审计</li>
-</ul>
-<p>用户触发扫描后，系统以 3 个并发槽位并行运行 <code>nga</code> 对每个文件进行 AI 审计，漏洞从 Markdown 报告中解析，并提供完整的接受/拒绝工作流以及 Memory Rule 知识库反馈到后续扫描中。</p>
+<p>Combinate Agentic Review 是一个面向无线通信系统（4G/5G RRC/MAC/NAS 协议栈）的 C/C++ 代码安全审计平台。它将 LLM Agent（通过 <code>nga</code> CLI）与分布式 Worker 集群相结合，实现自动化的低错问题扫描、漏洞管理和知识沉淀。</p>
 <h2 id="核心特性"><a class="header" href="#核心特性">核心特性</a></h2>
 <ul>
-<li><strong>分布式 Worker 集群</strong> — 支持本地内嵌 Worker 和独立远程 Worker 节点</li>
-<li><strong>实时 SSE 日志流</strong> — 扫描过程实时推送至浏览器</li>
-<li><strong>漏洞生命周期管理</strong> — 接受/拒绝/分配，自动生成 Memory Rule</li>
-<li><strong>Memory Rule 知识库</strong> — 正向（聚焦）与负向（忽略）规则，个人/全局级别</li>
-<li><strong>基于角色的访问控制</strong> — admin / committer / user 三级权限</li>
-<li><strong>定时调度扫描</strong> — APScheduler 支持 cron 表达式每日定时扫描</li>
-<li><strong>Git 增量扫描</strong> — 基于 commit diff 的增量审计，节省 LLM 推理成本约 78.4%</li>
+<li><strong>分布式扫描集群</strong> — Dispatcher + Remote Agent 架构，支持 SSH 一键自动部署 Agent 到远程机器</li>
+<li><strong>AI Agent 编排</strong> — Orchestrator 管理并发扫描槽位，动态超时，断点续扫</li>
+<li><strong>漏洞生命周期</strong> — 自动提取 → Accept/Reject → 生成 Memory Rule 知识闭环</li>
+<li><strong>增量扫描</strong> — Git diff 驱动，仅扫描变更文件，节省 LLM 推理成本</li>
+<li><strong>实时监控</strong> — SSE 实时日志流，Worker 心跳与 Git 统计上报</li>
+<li><strong>角色权限</strong> — JWT + 三级角色 (admin/committer/user)，Worker 所有权隔离</li>
+<li><strong>SSH Deploy Key</strong> — Ed25519 密钥对自动生成，前端获取公钥添加到远程机器</li>
+<li><strong>失败文件高亮</strong> — 报告查看器中红色标记扫描失败文件</li>
+<li><strong>断点续扫</strong> — 作业中断后可 Resume，跳过已完成文件继续扫描</li>
 </ul>
 <h2 id="技术栈"><a class="header" href="#技术栈">技术栈</a></h2>
 <div class="table-wrapper">
@@ -208,13 +203,25 @@
 <tr><th>层</th><th>技术</th></tr>
 </thead>
 <tbody>
-<tr><td>后端</td><td>FastAPI + SQLAlchemy + SQLite + Redis</td></tr>
-<tr><td>前端</td><td>Vite + React 19 + TypeScript + Tailwind CSS</td></tr>
-<tr><td>Worker</td><td>Python 编排器 + <code>nga</code> CLI 子进程</td></tr>
-<tr><td>基础设施</td><td>Docker Compose (Redis + App)</td></tr>
+<tr><td>后端</td><td>FastAPI + SQLAlchemy + Redis + APScheduler</td></tr>
+<tr><td>前端</td><td>React 19 + TypeScript + Vite + Tailwind CSS</td></tr>
+<tr><td>Worker</td><td>Python asyncio + <code>nga</code> CLI + asyncssh</td></tr>
+<tr><td>数据库</td><td>SQLite (开发) / PostgreSQL (规划)</td></tr>
+<tr><td>部署</td><td>Docker Compose / SSH 自动部署</td></tr>
 </tbody>
 </table>
 </div>
+<h2 id="快速开始"><a class="header" href="#快速开始">快速开始</a></h2>
+<p>请阅读 <a href="./quickstart.html">快速开始</a> 了解如何启动和部署。</p>
+<h2 id="文档导航"><a class="header" href="#文档导航">文档导航</a></h2>
+<ul>
+<li><a href="./architecture/overview.html">系统架构</a> — 整体设计、Dispatcher + Agent 双 Worker 架构</li>
+<li><a href="./backend/overview.html">后端</a> — FastAPI API 路由、核心服务</li>
+<li><a href="./frontend/overview.html">前端</a> — React 组件、API 集成</li>
+<li><a href="./worker/agent.html">Worker 引擎</a> — Agent、Deployer、Orchestrator、技能知识库</li>
+<li><a href="./deployment/docker.html">部署</a> — Docker 部署、GitHub Pages</li>
+<li><a href="./roadmap.html">路线图</a> — 开发进度与未来规划</li>
+</ul>
 
                     </main>
 

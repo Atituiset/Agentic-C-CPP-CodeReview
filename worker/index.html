@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-5dc748b6.js";
+            window.path_to_searchindex_js = "../searchindex-215a8a91.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-4550dfc0.js"></script>
+        <script src="../toc-97335460.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -181,12 +181,14 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="worker-引擎"><a class="header" href="#worker-引擎">Worker 引擎</a></h1>
-<p>Worker 扫描引擎的详细文档，包括 Orchestrator 编排器、独立 Worker 节点和技能知识库。</p>
+<p>Worker 扫描引擎的详细文档，包括 Remote Agent、SSH 部署、Orchestrator 编排器、独立 Worker 节点和技能知识库。</p>
 <p>请从左侧导航选择具体章节：</p>
 <ul>
-<li><a href="./orchestrator.html">Orchestrator 编排器</a> — CLI 接口、并发控制、子进程管理、报告生成</li>
-<li><a href="./worker-node.html">Worker Node 独立节点</a> — 注册、心跳、作业消费、Git 同步</li>
-<li><a href="./skills.html">技能与知识库</a> — 扫描规则、领域知识、Memory Rule 反馈闭环</li>
+<li><a href="./agent.html">Remote Agent 常驻代理</a> — FastAPI 服务 (port 8765)、/scan、心跳、报告上报</li>
+<li><a href="./deployer.html">SSH 部署服务</a> — 10 步自动部署流程、Deploy Key 管理、部署日志</li>
+<li><a href="./orchestrator.html">Orchestrator 编排器</a> — CLI 接口、并发控制、动态超时、断点续扫、报告生成</li>
+<li><a href="./worker-node.html">Worker Node 独立节点</a> — 注册、心跳、Redis BRPOP 作业消费、Git 同步</li>
+<li><a href="./skills.html">技能与知识库</a> — 10 条扫描规则、领域知识、Memory Rule 反馈闭环</li>
 </ul>
 
                     </main>
@@ -197,7 +199,7 @@
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="../worker/orchestrator.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../worker/agent.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -211,7 +213,7 @@
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="../worker/orchestrator.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../worker/agent.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

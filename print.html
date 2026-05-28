@@ -36,10 +36,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-5dc748b6.js";
+            window.path_to_searchindex_js = "searchindex-215a8a91.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-4550dfc0.js"></script>
+        <script src="toc-97335460.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -179,25 +179,20 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="combinate-agentic-review"><a class="header" href="#combinate-agentic-review">Combinate Agentic Review</a></h1>
-<p><strong>企业级 C/C++ 仓库 AI 自动化代码审计平台</strong></p>
-<p><img src="images/dashboard-main.png" alt="Dashboard 截图"></p>
-<p><img src="images/login.gif" alt="操作演示"></p>
+<p><strong>AI 驱动的无线通信系统代码安全审计平台</strong></p>
 <h2 id="项目定位"><a class="header" href="#项目定位">项目定位</a></h2>
-<p>Combinate Agentic Review 是一个融合了两个先前项目的 AI 代码审计平台：</p>
-<ul>
-<li><strong>Agentic-C-CPP-CodeReview</strong> — React 仪表盘，用于展示代码审计结果</li>
-<li><strong>event-loop-agent</strong> — Python 扫描引擎，使用 <code>nga</code> (OpenCode Agent) CLI 对 C/C++ 仓库进行并行逐文件 AI 代码审计</li>
-</ul>
-<p>用户触发扫描后，系统以 3 个并发槽位并行运行 <code>nga</code> 对每个文件进行 AI 审计，漏洞从 Markdown 报告中解析，并提供完整的接受/拒绝工作流以及 Memory Rule 知识库反馈到后续扫描中。</p>
+<p>Combinate Agentic Review 是一个面向无线通信系统（4G/5G RRC/MAC/NAS 协议栈）的 C/C++ 代码安全审计平台。它将 LLM Agent（通过 <code>nga</code> CLI）与分布式 Worker 集群相结合，实现自动化的低错问题扫描、漏洞管理和知识沉淀。</p>
 <h2 id="核心特性"><a class="header" href="#核心特性">核心特性</a></h2>
 <ul>
-<li><strong>分布式 Worker 集群</strong> — 支持本地内嵌 Worker 和独立远程 Worker 节点</li>
-<li><strong>实时 SSE 日志流</strong> — 扫描过程实时推送至浏览器</li>
-<li><strong>漏洞生命周期管理</strong> — 接受/拒绝/分配，自动生成 Memory Rule</li>
-<li><strong>Memory Rule 知识库</strong> — 正向（聚焦）与负向（忽略）规则，个人/全局级别</li>
-<li><strong>基于角色的访问控制</strong> — admin / committer / user 三级权限</li>
-<li><strong>定时调度扫描</strong> — APScheduler 支持 cron 表达式每日定时扫描</li>
-<li><strong>Git 增量扫描</strong> — 基于 commit diff 的增量审计，节省 LLM 推理成本约 78.4%</li>
+<li><strong>分布式扫描集群</strong> — Dispatcher + Remote Agent 架构，支持 SSH 一键自动部署 Agent 到远程机器</li>
+<li><strong>AI Agent 编排</strong> — Orchestrator 管理并发扫描槽位，动态超时，断点续扫</li>
+<li><strong>漏洞生命周期</strong> — 自动提取 → Accept/Reject → 生成 Memory Rule 知识闭环</li>
+<li><strong>增量扫描</strong> — Git diff 驱动，仅扫描变更文件，节省 LLM 推理成本</li>
+<li><strong>实时监控</strong> — SSE 实时日志流，Worker 心跳与 Git 统计上报</li>
+<li><strong>角色权限</strong> — JWT + 三级角色 (admin/committer/user)，Worker 所有权隔离</li>
+<li><strong>SSH Deploy Key</strong> — Ed25519 密钥对自动生成，前端获取公钥添加到远程机器</li>
+<li><strong>失败文件高亮</strong> — 报告查看器中红色标记扫描失败文件</li>
+<li><strong>断点续扫</strong> — 作业中断后可 Resume，跳过已完成文件继续扫描</li>
 </ul>
 <h2 id="技术栈"><a class="header" href="#技术栈">技术栈</a></h2>
 <div class="table-wrapper">
@@ -206,482 +201,649 @@
 <tr><th>层</th><th>技术</th></tr>
 </thead>
 <tbody>
-<tr><td>后端</td><td>FastAPI + SQLAlchemy + SQLite + Redis</td></tr>
-<tr><td>前端</td><td>Vite + React 19 + TypeScript + Tailwind CSS</td></tr>
-<tr><td>Worker</td><td>Python 编排器 + <code>nga</code> CLI 子进程</td></tr>
-<tr><td>基础设施</td><td>Docker Compose (Redis + App)</td></tr>
+<tr><td>后端</td><td>FastAPI + SQLAlchemy + Redis + APScheduler</td></tr>
+<tr><td>前端</td><td>React 19 + TypeScript + Vite + Tailwind CSS</td></tr>
+<tr><td>Worker</td><td>Python asyncio + <code>nga</code> CLI + asyncssh</td></tr>
+<tr><td>数据库</td><td>SQLite (开发) / PostgreSQL (规划)</td></tr>
+<tr><td>部署</td><td>Docker Compose / SSH 自动部署</td></tr>
 </tbody>
 </table>
 </div>
+<h2 id="快速开始"><a class="header" href="#快速开始">快速开始</a></h2>
+<p>请阅读 <a href="#快速开始-1">快速开始</a> 了解如何启动和部署。</p>
+<h2 id="文档导航"><a class="header" href="#文档导航">文档导航</a></h2>
+<ul>
+<li><a href="#整体架构">系统架构</a> — 整体设计、Dispatcher + Agent 双 Worker 架构</li>
+<li><a href="#后端概览与入口">后端</a> — FastAPI API 路由、核心服务</li>
+<li><a href="#前端概览与组件">前端</a> — React 组件、API 集成</li>
+<li><a href="#remote-agent-常驻代理">Worker 引擎</a> — Agent、Deployer、Orchestrator、技能知识库</li>
+<li><a href="#docker-部署">部署</a> — Docker 部署、GitHub Pages</li>
+<li><a href="#路线图">路线图</a> — 开发进度与未来规划</li>
+</ul>
 <div style="break-before: page; page-break-before: always;"></div>
-<h1 id="快速开始"><a class="header" href="#快速开始">快速开始</a></h1>
+<h1 id="快速开始-1"><a class="header" href="#快速开始-1">快速开始</a></h1>
 <h2 id="前置条件"><a class="header" href="#前置条件">前置条件</a></h2>
 <ul>
-<li>Python 3.12+</li>
-<li>Node.js 22+</li>
+<li>Python 3.10+</li>
+<li>Node.js 18+</li>
 <li>Redis 7+</li>
-<li><code>nga</code> CLI (OpenCode Agent)</li>
+<li><a href="https://docs.astral.sh/uv/">uv</a> (推荐) 或 pip</li>
+<li><a href="https://rust-lang.github.io/mdBook/">mdbook</a> (仅文档构建)</li>
 </ul>
-<h2 id="本地开发"><a class="header" href="#本地开发">本地开发</a></h2>
-<h3 id="1-启动-redis"><a class="header" href="#1-启动-redis">1. 启动 Redis</a></h3>
-<pre><code class="language-bash">redis-server --daemonize yes
+<h2 id="1-启动后端"><a class="header" href="#1-启动后端">1. 启动后端</a></h2>
+<pre><code class="language-bash"># 使用 uv (推荐)
+cd backend
+uv venv &amp;&amp; source .venv/bin/activate
+uv pip install -r requirements.txt
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+# 或使用 pip
+cd backend
+python3 -m venv .venv &amp;&amp; source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 </code></pre>
-<h3 id="2-安装后端依赖"><a class="header" href="#2-安装后端依赖">2. 安装后端依赖</a></h3>
-<pre><code class="language-bash">pip install -r requirements.txt
-</code></pre>
-<h3 id="3-构建前端"><a class="header" href="#3-构建前端">3. 构建前端</a></h3>
+<p>后端启动时自动：</p>
+<ul>
+<li>创建 SQLite 数据库和默认 admin 用户 (admin / admin123)</li>
+<li>生成 SSH Deploy Key (<code>~/.opencode/keys/id_ed25519</code>)</li>
+<li>启动 Dispatcher 调度循环（轮询 Redis 队列，分发给 Agent）</li>
+</ul>
+<h2 id="2-启动前端"><a class="header" href="#2-启动前端">2. 启动前端</a></h2>
 <pre><code class="language-bash">cd frontend
 npm install
-npm run build
-cd ..
+npm run dev
 </code></pre>
-<h3 id="4-启动应用"><a class="header" href="#4-启动应用">4. 启动应用</a></h3>
-<pre><code class="language-bash">PYTHONPATH=. uvicorn backend.main:app --host 0.0.0.0 --port 8000
+<p>访问 http://localhost:5173</p>
+<h2 id="3-启动-redis"><a class="header" href="#3-启动-redis">3. 启动 Redis</a></h2>
+<pre><code class="language-bash">redis-server
 </code></pre>
-<p>应用启动后：</p>
+<p>或使用 Docker：</p>
+<pre><code class="language-bash">docker run -d -p 6379:6379 redis:7-alpine
+</code></pre>
+<h2 id="4-部署远程-agent"><a class="header" href="#4-部署远程-agent">4. 部署远程 Agent</a></h2>
+<h3 id="4a-获取-deploy-key-公钥"><a class="header" href="#4a-获取-deploy-key-公钥">4a. 获取 Deploy Key 公钥</a></h3>
+<p>登录前端 → My Workers → 点击 Deploy Key 按钮，或：</p>
+<pre><code class="language-bash">curl http://localhost:8000/api/workers/deploy-key -H "Authorization: Bearer &lt;token&gt;"
+</code></pre>
+<p>将返回的公钥添加到远程机器的 <code>~/.ssh/authorized_keys</code>。</p>
+<h3 id="4b-在前端添加-worker"><a class="header" href="#4b-在前端添加-worker">4b. 在前端添加 Worker</a></h3>
+<ol>
+<li>进入 My Workers 页面</li>
+<li>点击 Add Worker</li>
+<li>填写 Worker ID、SSH Host/Port/Username、Repo Path、Scan Mode</li>
+<li>点击 Deploy — 后端自动 SSH 部署 Agent</li>
+</ol>
+<h3 id="4c-或手动部署-agent"><a class="header" href="#4c-或手动部署-agent">4c. 或手动部署 Agent</a></h3>
+<ol>
+<li>将 <code>worker/agent.py</code>、<code>worker/orchestrator.py</code>、<code>worker/git_sync.py</code> 复制到远程机器</li>
+<li>创建 <code>~/.opencode-agent/config.json</code>：</li>
+</ol>
+<pre><code class="language-json">{
+  "worker_id": "remote-01",
+  "backend_url": "http://&lt;backend-ip&gt;:8000",
+  "redis_url": "redis://&lt;redis-ip&gt;:6379/0",
+  "repo_path": "/path/to/repo"
+}
+</code></pre>
+<ol start="3">
+<li>启动 Agent：</li>
+</ol>
+<pre><code class="language-bash">pip install redis httpx fastapi uvicorn
+cd ~/.opencode-agent
+nohup python3 agent.py &gt; logs/agent.log 2&gt;&amp;1 &amp;
+</code></pre>
+<h2 id="5-触发扫描"><a class="header" href="#5-触发扫描">5. 触发扫描</a></h2>
+<h3 id="通过前端"><a class="header" href="#通过前端">通过前端</a></h3>
 <ul>
-<li>自动创建数据库表并 seed 默认管理员账户</li>
-<li>启动调度器（APScheduler）</li>
-<li>启动本地 Worker 循环（Redis BRPOP 消费者）</li>
-<li>在 <code>http://localhost:8000</code> 提供前端静态文件服务</li>
+<li>Dashboard → Trigger Global MR Scan — 全量扫描</li>
+<li>Scan Jobs Queue → Create Job — 创建单个扫描作业</li>
 </ul>
-<h3 id="5-登录"><a class="header" href="#5-登录">5. 登录</a></h3>
-<p>访问 <code>http://localhost:8000</code>，使用默认凭据：</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>用户名</th><th>密码</th></tr>
-</thead>
-<tbody>
-<tr><td>admin</td><td>admin123</td></tr>
-</tbody>
-</table>
-</div>
-<p><img src="images/login-page.png" alt="登录页面"></p>
-<h2 id="docker-部署"><a class="header" href="#docker-部署">Docker 部署</a></h2>
-<pre><code class="language-bash">docker compose up --build
+<h3 id="通过-api"><a class="header" href="#通过-api">通过 API</a></h3>
+<pre><code class="language-bash">curl -X POST http://localhost:8000/api/jobs \
+  -H "Authorization: Bearer &lt;token&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"mode": "full", "worker_id": "remote-01"}'
 </code></pre>
-<p>详见 <a href="#docker-部署-1">Docker 部署</a> 章节。</p>
-<h2 id="独立-worker-节点"><a class="header" href="#独立-worker-节点">独立 Worker 节点</a></h2>
-<p>在远程机器上运行：</p>
-<pre><code class="language-bash">python3 worker_node.py
+<h2 id="docker-compose-一键启动"><a class="header" href="#docker-compose-一键启动">Docker Compose 一键启动</a></h2>
+<pre><code class="language-bash">docker compose up -d
 </code></pre>
-<p>Worker 会自动向 Gateway API 注册，通过 Redis 消费作业，并定期发送心跳。</p>
+<p>包含：后端 (8000) + 前端 (5173) + Redis (6379)</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="系统架构"><a class="header" href="#系统架构">系统架构</a></h1>
 <p>Combinate Agentic Review 的系统架构设计，涵盖整体架构、数据流、数据库模型和认证授权机制。</p>
 <p>请从左侧导航选择具体章节：</p>
 <ul>
-<li><a href="#整体架构">整体架构</a> — 系统全景、关键设计决策、双 Worker 架构</li>
-<li><a href="#数据流">数据流</a> — 作业生命周期、SSE 通道、漏洞处理流程</li>
-<li><a href="#数据库模型">数据库模型</a> — ER 图、模型详情、字段说明</li>
-<li><a href="#认证与授权">认证与授权</a> — JWT 机制、角色体系、权限矩阵</li>
+<li><a href="#整体架构">整体架构</a> — 系统全景、Dispatcher + Agent + Deployer 双 Worker 架构</li>
+<li><a href="#数据流">数据流</a> — 作业生命周期、Dispatch/Finalize 流程、部署流程、SSE 通道</li>
+<li><a href="#数据库模型">数据库模型</a> — 9 个 ORM 模型、完整字段说明、状态机</li>
+<li><a href="#认证与授权">认证与授权</a> — JWT 机制、角色体系、权限矩阵、Worker 所有权隔离</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="整体架构"><a class="header" href="#整体架构">整体架构</a></h1>
 <h2 id="系统全景"><a class="header" href="#系统全景">系统全景</a></h2>
-<p>Combinate Agentic Review 采用前后端分离 + 分布式 Worker 的架构：</p>
-<pre><code>┌─────────────────────────────────────────────────────────┐
-│                    Browser (React SPA)                  │
-│  ┌──────┐ ┌──────────┐ ┌────────┐ ┌──────┐ ┌────────┐ │
-│  │Dash- │ │Worker    │ │Scan    │ │Vuln  │ │Memory  │ │
-│  │board │ │Fleet     │ │Jobs    │ │Center│ │Manager │ │
-│  └──┬───┘ └────┬─────┘ └───┬────┘ └──┬───┘ └───┬────┘ │
-│     └──────────┴───────────┴─────────┴─────────┘      │
-│                    REST API + SSE                       │
-└────────────────────────┬────────────────────────────────┘
+<pre><code>┌──────────────────────────────────────────────────────────────────┐
+│                         Frontend (React)                         │
+│  Dashboard │ ScanJobs │ VulnerabilityCenter │ Memory │ MyWorkers │
+└──────────────────────────┬───────────────────────────────────────┘
+                           │ REST API + SSE
+┌──────────────────────────▼───────────────────────────────────────┐
+│                    FastAPI Backend (8000)                         │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐    │
+│  │   Auth   │ │  Jobs    │ │ Workers  │ │  Vulnerabilities │    │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────────────┘    │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐    │
+│  │ Memory   │ │ Scheduler│ │  SSE     │ │  Deploy/DeployKey│    │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────────────┘    │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │              Dispatcher Loop (lifespan)                   │    │
+│  │  Redis BRPOP → 选 Worker → HTTP POST /scan → Agent       │    │
+│  └──────────────────────────────────────────────────────────┘    │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │              Deployer (asyncssh)                          │    │
+│  │  SSH → 检查 Python → 安装依赖 → 上传文件 → 启动 Agent    │    │
+│  └──────────────────────────────────────────────────────────┘    │
+└──────────┬───────────────┬──────────────────────────────────────┘
+           │               │
+    ┌──────▼──────┐  ┌─────▼──────┐
+    │   SQLite    │  │   Redis    │
+    │   (ORM)     │  │  (Queue)   │
+    └─────────────┘  └─────┬──────┘
                          │
-┌────────────────────────▼────────────────────────────────┐
-│                  FastAPI Gateway                         │
-│  ┌─────────┐ ┌─────────┐ ┌────────┐ ┌───────────────┐  │
-│  │Auth     │ │Jobs     │ │Slots   │ │Vulnerabilities│  │
-│  │Router   │ │Router   │ │Router  │ │Router         │  │
-│  ├─────────┤ ├─────────┤ ├────────┤ ├───────────────┤  │
-│  │Users    │ │Workers  │ │Memory  │ │SSE / Reports  │  │
-│  │Router   │ │Router   │ │Router  │ │Router         │  │
-│  └─────────┘ └─────────┘ └────────┘ └───────────────┘  │
-│                                                         │
-│  ┌──────────────────┐  ┌───────────────────────────┐   │
-│  │  SQLAlchemy ORM  │  │     Redis Client          │   │
-│  │  (SQLite)        │  │  (Pub/Sub + Job Queue)    │   │
-│  └──────────────────┘  └───────────┬───────────────┘   │
-└────────────────────────────────────┬────────────────────┘
-                                     │
-                    ┌────────────────▼────────────────┐
-                    │         Redis Server            │
-                    │   ┌──────────┐ ┌─────────────┐ │
-                    │   │Pub/Sub   │ │Job Queue    │ │
-                    │   │(logs/meta│ │(BRPOP/LPUSH)│ │
-                    │   └──────────┘ └─────────────┘ │
-                    └────────────────┬───────────────┘
-                                     │
-          ┌──────────────────────────┼──────────────────────────┐
-          │                          │                          │
-┌─────────▼──────────┐  ┌───────────▼─────────┐  ┌────────────▼───────┐
-│  Local Worker Loop │  │  Worker Node A      │  │  Worker Node B     │
-│  (in-process)      │  │  (worker_node.py)   │  │  (worker_node.py)  │
-│                    │  │                     │  │                    │
-│  ┌──────────────┐  │  │  ┌──────────────┐  │  │  ┌──────────────┐  │
-│  │ Orchestrator │  │  │  │ Orchestrator │  │  │  │ Orchestrator │  │
-│  │ (nga CLI)    │  │  │  │ (nga CLI)    │  │  │  │ (nga CLI)    │  │
-│  │ 3 slots      │  │  │  │ 3 slots      │  │  │  │ 3 slots      │  │
-│  └──────────────┘  │  │  └──────────────┘  │  │  └──────────────┘  │
-└────────────────────┘  └─────────────────────┘  └────────────────────┘
+        ┌────────────────┼────────────────┐
+        │                │                │
+  ┌─────▼─────┐   ┌─────▼─────┐   ┌─────▼─────┐
+  │  Agent 1  │   │  Agent 2  │   │  Agent N  │
+  │ (8765)    │   │ (8765)    │   │ (8765)    │
+  │ ┌───────┐ │   │           │   │           │
+  │ │Orch.  │ │   │           │   │           │
+  │ │ nga   │ │   │           │   │           │
+  │ └───────┘ │   │           │   │           │
+  └───────────┘   └───────────┘   └───────────┘
+  (Remote Machines via SSH)
 </code></pre>
 <h2 id="关键设计决策"><a class="header" href="#关键设计决策">关键设计决策</a></h2>
-<h3 id="双-worker-架构"><a class="header" href="#双-worker-架构">双 Worker 架构</a></h3>
-<p>系统支持两种 Worker 模式：</p>
-<ol>
-<li><strong>Local Worker Loop</strong> — 内嵌在 FastAPI 进程中，通过 <code>backend/services/worker.py</code> 的 <code>worker_loop()</code> 函数实现，直接从 Redis 队列消费作业</li>
-<li><strong>Standalone Worker Node</strong> — 通过 <code>worker_node.py</code> 独立运行，通过 HTTP API 注册、发送心跳，通过 Redis 消费作业</li>
-</ol>
-<p>两种 Worker 共享相同的 Orchestrator 子进程调用逻辑，确保行为一致。</p>
-<h3 id="slot-并发模型"><a class="header" href="#slot-并发模型">Slot 并发模型</a></h3>
-<p>每个 Worker 拥有 3 个并发槽位（可配置），通过内存中的 <code>worker_slots</code> 字典管理：</p>
+<h3 id="1-dispatcher--agent-模式"><a class="header" href="#1-dispatcher--agent-模式">1. Dispatcher + Agent 模式</a></h3>
+<p>后端 Dispatcher 在 lifespan 中启动后台循环，通过 Redis BRPOP 消费作业队列，然后通过 HTTP POST /scan 将作业分发给已注册的 Remote Agent。</p>
+<p><strong>为什么不直接让 Agent 消费 Redis？</strong></p>
 <ul>
-<li><code>acquire</code> — 占用槽位</li>
-<li><code>push</code> — 推送日志/元数据</li>
-<li><code>status</code> — 查询状态</li>
-<li><code>release</code> — 释放槽位</li>
+<li>Agent 可能部署在无法直连 Redis 的网络环境</li>
+<li>后端可以统一调度策略（负载均衡、亲和性）</li>
+<li>部署更简单 — Agent 只需知道后端 URL</li>
 </ul>
-<h3 id="sse-实时推送"><a class="header" href="#sse-实时推送">SSE 实时推送</a></h3>
-<p>Orchestrator 子进程的输出通过以下链路实时推送至浏览器：</p>
-<pre><code>Orchestrator stdout → POST /api/slot/{id}/push → Redis PUBLISH → SSE handler → browser EventSource
-</code></pre>
+<h3 id="2-双-worker-模式"><a class="header" href="#2-双-worker-模式">2. 双 Worker 模式</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>模式</th><th>Agent</th><th>Worker Node</th></tr>
+</thead>
+<tbody>
+<tr><td>作业接收</td><td>HTTP POST /scan (被动)</td><td>Redis BRPOP (主动)</td></tr>
+<tr><td>部署方式</td><td>SSH 自动部署</td><td>手动启动</td></tr>
+<tr><td>需要直连 Redis</td><td>否</td><td>是</td></tr>
+<tr><td>需要后端 Dispatcher</td><td>是</td><td>否</td></tr>
+<tr><td>适合场景</td><td>托管式集群</td><td>自主管理节点</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="3-finalize-端点"><a class="header" href="#3-finalize-端点">3. /finalize 端点</a></h3>
+<p>Agent 扫描完成后通过 /finalize 批量上报结果（含报告内容），后端将报告写入本地存储。这是 Agent 与后端的核心数据通道。</p>
+<h3 id="4-worker-所有权"><a class="header" href="#4-worker-所有权">4. Worker 所有权</a></h3>
+<p>每个 Worker 有 owner_id 字段，用户只能管理自己创建的 Worker。Admin 可查看所有 Worker。</p>
+<h2 id="技术选型"><a class="header" href="#技术选型">技术选型</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>组件</th><th>选型</th><th>理由</th></tr>
+</thead>
+<tbody>
+<tr><td>Web 框架</td><td>FastAPI</td><td>异步、自动 OpenAPI 文档</td></tr>
+<tr><td>ORM</td><td>SQLAlchemy 2.0</td><td>成熟、类型提示友好</td></tr>
+<tr><td>队列</td><td>Redis</td><td>轻量、BRPOP 天然适合作业分发</td></tr>
+<tr><td>前端</td><td>React 19 + Vite</td><td>生态成熟、HMR 快</td></tr>
+<tr><td>样式</td><td>Tailwind CSS</td><td>Dark GitHub 风格、快速开发</td></tr>
+<tr><td>SSH</td><td>asyncssh</td><td>纯 Python 异步 SSH 库</td></tr>
+<tr><td>子进程</td><td>asyncio.subprocess</td><td>Orchestrator 进程管理</td></tr>
+</tbody>
+</table>
+</div>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="数据流"><a class="header" href="#数据流">数据流</a></h1>
 <h2 id="作业生命周期"><a class="header" href="#作业生命周期">作业生命周期</a></h2>
-<p>一个扫描作业从创建到完成的完整数据流：</p>
-<pre><code>用户触发扫描
-    │
-    ▼
-POST /api/jobs ──────────► FastAPI Jobs Router
-    │                            │
-    │                            ▼
-    │                     创建 Job 记录 (DB)
-    │                     为每个 C/C++ 文件创建 Task 记录
-    │                            │
-    │                            ▼
-    │                     Redis LPUSH → job_queue
-    │
-    ▼
-Worker (BRPOP job_queue)
-    │
-    ▼
-Orchestrator 子进程启动
-    │
-    ├──► 对每个文件执行: nga run '&lt;prompt&gt;'
-    │         │
-    │         ├──► stdout → POST /api/slot/{slot}/push
-    │         │                    │
-    │         │                    ▼
-    │         │              Redis PUBLISH → channel:worker_{id}_slot_{n}
-    │         │                    │
-    │         │                    ▼
-    │         │              SSE handler → browser EventSource
-    │         │
-    │         └──► 生成 .md 报告到 reports/{timestamp}/
-    │
-    ▼
-扫描完成
-    │
-    ├──► 解析漏洞报告 (report_parser.py)
-    │         │
-    │         ▼
-    │    创建 Vulnerability 记录 (DB)
-    │
-    ├──► 更新 Job 状态 → completed (DB)
-    │
-    └──► 释放 Slot
+<pre><code>Create Job → pending
+     │
+     ▼
+Redis LPUSH scan:job:queue → queued
+     │
+     ▼
+Dispatcher BRPOP → dispatched
+     │
+     ▼
+HTTP POST /scan (to Agent) → running
+     │
+     ▼
+Orchestrator 扫描文件 → running
+     │
+     ├── 正常完成 → POST /finalize → completed
+     ├── 用户取消 → cancelled
+     ├── 进程中断 → interrupted
+     └── 用户恢复 → resumed → running → completed
 </code></pre>
-<h2 id="sse-通道"><a class="header" href="#sse-通道">SSE 通道</a></h2>
-<p>系统支持两种 SSE 通道：</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>通道</th><th>URL</th><th>用途</th></tr>
-</thead>
-<tbody>
-<tr><td>Legacy</td><td><code>GET /api/sse/{slot_id}</code></td><td>兼容旧版单 Worker 架构</td></tr>
-<tr><td>Worker-specific</td><td><code>GET /api/sse/worker/{worker_id}/{slot_id}</code></td><td>多 Worker 架构，每个 Worker 有独立通道</td></tr>
-</tbody>
-</table>
-</div>
-<p>前端在 NodeDetail 组件中为每个活跃 Slot 建立 EventSource 连接，实时渲染 ANSI 格式的日志输出。</p>
+<h2 id="dispatcher-分发流程"><a class="header" href="#dispatcher-分发流程">Dispatcher 分发流程</a></h2>
+<pre><code>Dispatcher Loop (lifespan 后台任务)
+│
+├── Redis BRPOP scan:job:queue (timeout=5s)
+├── 解析 job_data (JSON)
+├── 查找可用 Agent
+│   ├── 过滤 status="idle" 的 Worker
+│   ├── 排除 deploy_status != "deployed" 的 Worker
+│   └── 选择第一个匹配的 Worker
+├── 更新 Job.status = "dispatched", Job.worker_id = worker.id
+└── HTTP POST worker.backend_url/api/scan
+</code></pre>
+<h2 id="agent-finalize-流程"><a class="header" href="#agent-finalize-流程">Agent Finalize 流程</a></h2>
+<pre><code>Agent 扫描完成
+│
+├── 遍历 report_dir/*.md
+├── parse_vulnerability_report() 解析每个文件
+├── 收集漏洞列表 + 报告内容
+└── POST /api/jobs/{job_id}/finalize
+    {
+      "worker_id": "remote-01",
+      "results": [
+        {"file_path": "src/file1.c", "status": "completed",
+         "report_content": "...", "vulnerabilities": [...]},
+        {"file_path": "src/buggy.c", "status": "failed",
+         "error": "timeout after 300s"}
+      ]
+    }
+</code></pre>
+<h2 id="standalone-worker-node-路径"><a class="header" href="#standalone-worker-node-路径">Standalone Worker Node 路径</a></h2>
+<pre><code>Worker Node 进程
+│
+├── 注册到 Gateway API
+├── 心跳循环 (30s)
+└── 作业消费循环
+    ├── Redis BRPOP scan:job:queue
+    ├── acquire_slot()
+    ├── 启动 Orchestrator 子进程
+    ├── 报告解析 → 漏洞写入
+    ├── API 结果上报
+    └── release_slot()
+</code></pre>
+<h2 id="ssh-部署流程"><a class="header" href="#ssh-部署流程">SSH 部署流程</a></h2>
+<pre><code>前端 MyWorkers → Deploy 按钮
+│
+▼
+POST /api/workers/{id}/deploy (BackgroundTask)
+│
+▼
+Deployer (asyncssh)
+├── 1. deploy_status = "deploying"
+├── 2. SSH connect (key/password/deploy-key)
+├── 3. 检查 Python 3.10+
+├── 4. pip install 依赖
+├── 5. mkdir ~/.opencode-agent/
+├── 6. SFTP 上传 agent.py, orchestrator.py, git_sync.py, config.json
+├── 7. pkill 旧 Agent 进程
+├── 8. nohup python3 agent.py &amp;
+├── 9. 等待注册 (最多 60s)
+└── 10. deploy_status = "deployed" / "failed"
+</code></pre>
+<h2 id="sse-实时日志流"><a class="header" href="#sse-实时日志流">SSE 实时日志流</a></h2>
+<pre><code>前端 EventSource
+│
+├── /api/sse/worker/{worker_id}/{slot_id}?token=&lt;jwt&gt;
+│
+▼
+FastAPI SSE endpoint
+│
+├── Redis SUBSCRIBE slot:{worker_id}:{slot_id}
+└── 转发消息为 SSE event
+    data: {"type": "log", "content": "...\n"}
+    data: {"type": "status", "status": "completed"}
+</code></pre>
 <h2 id="漏洞处理流程"><a class="header" href="#漏洞处理流程">漏洞处理流程</a></h2>
-<pre><code>扫描完成 → 报告解析 → Vulnerability (open)
-                              │
-                ┌─────────────┼─────────────┐
-                ▼                            ▼
-          Accept                        Reject
-                │                            │
-                ▼                            ▼
-    MemoryRule (positive,               MemoryRule (negative,
-    pending approval)                   auto-active)
-                │
-                ▼
-    Committer+ 审批
-        │           │
-        ▼           ▼
-    approved     rejected
-</code></pre>
-<ul>
-<li><strong>Accept</strong> — 自动创建正向 Memory Rule（聚焦此类问题），需 committer+ 审批后生效</li>
-<li><strong>Reject</strong> — 自动创建负向 Memory Rule（忽略此类误报），创建即生效</li>
-</ul>
-<h2 id="git-增量扫描流程"><a class="header" href="#git-增量扫描流程">Git 增量扫描流程</a></h2>
-<pre><code>POST /api/jobs/{id}/git-sync
-    │
-    ▼
-获取 HEAD commit hash
-    │
-    ▼
-对比上次扫描的 commit → get_changes_since()
-    │
-    ▼
-获取变更文件列表 + diff
-    │
-    ▼
-仅扫描变更的 C/C++ 文件
-    │
-    ▼
-节省约 78.4% 的 LLM 推理成本
+<pre><code>/finalize 上报 → 写入 Vulnerability 表 (status=open)
+│
+├── Accept → status=accepted
+│   └── 自动生成正向 Memory Rule (is_active=False, pending 审批)
+├── Reject → status=rejected
+│   └── 自动生成负向 Memory Rule (is_active=True, 立即生效)
+└── Assign → status=assigned (分配给处理人)
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="数据库模型"><a class="header" href="#数据库模型">数据库模型</a></h1>
-<p>系统使用 SQLAlchemy ORM + SQLite，所有模型定义在 <code>backend/models/orm.py</code>。</p>
-<h2 id="er-图"><a class="header" href="#er-图">ER 图</a></h2>
-<pre><code>┌──────────────┐     ┌──────────────┐     ┌──────────────────┐
-│     User      │     │     Job      │     │      Task        │
-├──────────────┤     ├──────────────┤     ├──────────────────┤
-│ id (PK)      │     │ id (PK)      │     │ id (PK)          │
-│ username     │     │ worker_id FK │     │ job_id (FK)      │
-│ password_hash│     │ repo_path    │     │ filename         │
-│ role         │     │ status       │     │ status           │
-│ created_at   │     │ created_at   │     │ started_at       │
-│              │     │ completed_at │     │ completed_at     │
-└──────────────┘     │ commit_hash  │     │ report_path      │
-                     └──────┬───────┘     └──────────────────┘
-                            │
-                            │ 1:N
-                            │
-                     ┌──────▼───────┐
-                     │   Worker     │
-                     ├──────────────┤
-                     │ id (PK)      │
-                     │ hostname     │
-                     │ ip_address   │
-                     │ slots_count  │
-                     │ status       │
-                     │ last_heartbeat│
-                     └──────────────┘
+<h2 id="er-关系"><a class="header" href="#er-关系">ER 关系</a></h2>
+<pre><code>User 1──N Worker (owner_id)
+User 1──N Job (created_by)
+User 1──N MemoryRule (created_by)
+User 1──N Vulnerability (accepted_by / rejected_by / assigned_to)
 
-┌──────────────────────┐     ┌──────────────────────┐
-│    Vulnerability      │     │    MemoryRule        │
-├──────────────────────┤     ├──────────────────────┤
-│ id (PK)              │     │ id (PK)              │
-│ job_id (FK)          │     │ title                │
-│ task_id (FK)         │     │ description          │
-│ title                │     │ rule_type            │
-│ description          │     │ category             │  positive / negative
-│ severity             │     │ scope                │  personal / global
-│ status               │     │ created_by (FK→User) │
-│ assigned_to (FK→User)│     │ approved_by (FK→User)│
-│ created_by (FK→User) │     │ status               │  pending / approved / rejected
-│ file_path            │     │ created_at           │
-│ line_number          │     └──────────────────────┘
-│ created_at           │
-└──────────────────────┘
+Worker 1──N Job (assigned_worker_id)
+Worker 1──1 WorkerGitStatus (worker_id)
+Worker 1──1 WorkerScheduleConfig (worker_id)
 
-┌──────────────────────┐     ┌──────────────────────┐
-│  SchedulerConfig     │     │ WorkerScheduleConfig │
-├──────────────────────┤     ├──────────────────────┤
-│ id (PK)              │     │ id (PK)              │
-│ worker_id (FK)       │     │ worker_id (FK)       │
-│ cron_expression      │     │ enabled              │
-│ enabled              │     │ cron_expression      │
-│ repo_path            │     │ repo_path            │
-└──────────────────────┘     └──────────────────────┘
+Job 1──N Task (job_id)
+Job 1──N Vulnerability (job_id)
+Job 1──1 Job (resumed_from_id, self-reference)
 </code></pre>
-<h2 id="模型详情"><a class="header" href="#模型详情">模型详情</a></h2>
-<h3 id="user"><a class="header" href="#user">User</a></h3>
+<h2 id="模型概览"><a class="header" href="#模型概览">模型概览</a></h2>
+<p>共 9 个 ORM 模型，定义于 <code>backend/models/orm.py</code>。</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>字段</th><th>类型</th><th>说明</th></tr>
+<tr><th>模型</th><th>表名</th><th>说明</th></tr>
 </thead>
 <tbody>
-<tr><td>id</td><td>Integer (PK)</td><td>自增主键</td></tr>
-<tr><td>username</td><td>String (unique)</td><td>用户名</td></tr>
-<tr><td>password_hash</td><td>String</td><td>bcrypt 哈希</td></tr>
-<tr><td>role</td><td>String</td><td>admin / committer / user</td></tr>
-<tr><td>created_at</td><td>DateTime</td><td>创建时间</td></tr>
+<tr><td>User</td><td>users</td><td>用户账户</td></tr>
+<tr><td>Worker</td><td>workers</td><td>扫描 Worker 节点</td></tr>
+<tr><td>Job</td><td>jobs</td><td>扫描作业</td></tr>
+<tr><td>Task</td><td>tasks</td><td>单文件扫描任务</td></tr>
+<tr><td>Vulnerability</td><td>vulnerabilities</td><td>扫描发现的漏洞</td></tr>
+<tr><td>MemoryRule</td><td>memory_rules</td><td>知识库规则</td></tr>
+<tr><td>SchedulerConfig</td><td>scheduler_configs</td><td>全局定时扫描配置</td></tr>
+<tr><td>WorkerGitStatus</td><td>worker_git_statuses</td><td>Worker Git 状态快照</td></tr>
+<tr><td>WorkerScheduleConfig</td><td>worker_schedule_configs</td><td>Worker 级定时扫描配置</td></tr>
 </tbody>
 </table>
 </div>
-<h3 id="job"><a class="header" href="#job">Job</a></h3>
+<hr>
+<h2 id="user"><a class="header" href="#user">User</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>字段</th><th>类型</th><th>说明</th></tr>
+<tr><th>字段</th><th>类型</th><th>约束</th><th>说明</th></tr>
 </thead>
 <tbody>
-<tr><td>id</td><td>Integer (PK)</td><td>自增主键</td></tr>
-<tr><td>worker_id</td><td>String (FK→Worker)</td><td>执行 Worker</td></tr>
-<tr><td>repo_path</td><td>String</td><td>仓库路径</td></tr>
-<tr><td>status</td><td>String</td><td>pending / running / completed / failed / cancelled</td></tr>
-<tr><td>created_at</td><td>DateTime</td><td>创建时间</td></tr>
-<tr><td>completed_at</td><td>DateTime</td><td>完成时间</td></tr>
-<tr><td>commit_hash</td><td>String</td><td>Git commit hash</td></tr>
+<tr><td>id</td><td>String(36)</td><td>PK, UUID</td><td>主键</td></tr>
+<tr><td>username</td><td>String(128)</td><td>UNIQUE, NOT NULL</td><td>用户名</td></tr>
+<tr><td>display_name</td><td>String(256)</td><td></td><td>显示名</td></tr>
+<tr><td>password_hash</td><td>String(256)</td><td>NOT NULL</td><td>bcrypt 哈希密码</td></tr>
+<tr><td>role</td><td>String(16)</td><td>NOT NULL</td><td>角色: admin / committer / user</td></tr>
+<tr><td>show_thinking</td><td>Boolean</td><td>default=True</td><td>是否显示 Agent 思考过程</td></tr>
+<tr><td>created_at</td><td>DateTime(tz)</td><td>server_default=now</td><td>创建时间</td></tr>
+<tr><td>created_by</td><td>String(36)</td><td>FK-&gt;users.id</td><td>创建者</td></tr>
 </tbody>
 </table>
 </div>
-<h3 id="task"><a class="header" href="#task">Task</a></h3>
+<h2 id="worker"><a class="header" href="#worker">Worker</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>字段</th><th>类型</th><th>说明</th></tr>
+<tr><th>字段</th><th>类型</th><th>约束</th><th>说明</th></tr>
 </thead>
 <tbody>
-<tr><td>id</td><td>Integer (PK)</td><td>自增主键</td></tr>
-<tr><td>job_id</td><td>Integer (FK→Job)</td><td>所属作业</td></tr>
-<tr><td>filename</td><td>String</td><td>扫描文件名</td></tr>
-<tr><td>status</td><td>String</td><td>pending / running / completed / failed</td></tr>
-<tr><td>started_at</td><td>DateTime</td><td>开始时间</td></tr>
-<tr><td>completed_at</td><td>DateTime</td><td>完成时间</td></tr>
-<tr><td>report_path</td><td>String</td><td>报告文件路径</td></tr>
+<tr><td>id</td><td>String(36)</td><td>PK, UUID</td><td>主键</td></tr>
+<tr><td>worker_id</td><td>String(64)</td><td>UNIQUE, NOT NULL</td><td>Worker 唯一标识</td></tr>
+<tr><td>hostname</td><td>String(256)</td><td></td><td>主机名</td></tr>
+<tr><td>ip_address</td><td>String(64)</td><td></td><td>IP 地址</td></tr>
+<tr><td>status</td><td>String(16)</td><td>default=“idle”</td><td>状态: idle / busy</td></tr>
+<tr><td>current_job_id</td><td>String(36)</td><td></td><td>当前执行的 Job ID</td></tr>
+<tr><td>last_heartbeat</td><td>DateTime(tz)</td><td></td><td>最后心跳时间</td></tr>
+<tr><td>registered_at</td><td>DateTime(tz)</td><td>server_default=now</td><td>注册时间</td></tr>
+<tr><td>capabilities</td><td>Text</td><td></td><td>能力描述</td></tr>
+<tr><td>show_thinking</td><td>Boolean</td><td>default=True</td><td>是否显示思考过程</td></tr>
+<tr><td>owner_id</td><td>String(36)</td><td>FK-&gt;users.id</td><td>所属用户</td></tr>
+<tr><td>ssh_host</td><td>String(256)</td><td></td><td>SSH 主机</td></tr>
+<tr><td>ssh_port</td><td>Integer</td><td>default=22</td><td>SSH 端口</td></tr>
+<tr><td>ssh_username</td><td>String(128)</td><td></td><td>SSH 用户名</td></tr>
+<tr><td>ssh_key</td><td>Text</td><td></td><td>SSH 私钥内容</td></tr>
+<tr><td>ssh_password</td><td>Text</td><td></td><td>SSH 密码</td></tr>
+<tr><td>deploy_status</td><td>String(16)</td><td>default=“pending”</td><td>部署状态: pending / deploying / deployed / failed</td></tr>
+<tr><td>deploy_error</td><td>Text</td><td></td><td>部署错误信息</td></tr>
+<tr><td>deploy_logs</td><td>Text</td><td></td><td>部署日志 (JSON 数组)</td></tr>
+<tr><td>repo_path</td><td>Text</td><td></td><td>仓库路径</td></tr>
+<tr><td>scan_mode</td><td>String(16)</td><td>default=“full”</td><td>扫描模式: full / diff / files</td></tr>
+<tr><td>target_commit</td><td>String(64)</td><td></td><td>增量扫描目标 commit</td></tr>
+<tr><td>cared_paths</td><td>Text</td><td></td><td>关注路径 (JSON 数组)</td></tr>
 </tbody>
 </table>
 </div>
-<h3 id="vulnerability"><a class="header" href="#vulnerability">Vulnerability</a></h3>
+<h2 id="job"><a class="header" href="#job">Job</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>字段</th><th>类型</th><th>说明</th></tr>
+<tr><th>字段</th><th>类型</th><th>约束</th><th>说明</th></tr>
 </thead>
 <tbody>
-<tr><td>id</td><td>Integer (PK)</td><td>自增主键</td></tr>
-<tr><td>job_id</td><td>Integer (FK→Job)</td><td>来源作业</td></tr>
-<tr><td>task_id</td><td>Integer (FK→Task)</td><td>来源任务</td></tr>
-<tr><td>title</td><td>String</td><td>漏洞标题</td></tr>
-<tr><td>description</td><td>Text</td><td>漏洞描述</td></tr>
-<tr><td>severity</td><td>String</td><td>critical / high / medium / low / info</td></tr>
-<tr><td>status</td><td>String</td><td>open / accepted / rejected / assigned</td></tr>
-<tr><td>assigned_to</td><td>Integer (FK→User)</td><td>分配给</td></tr>
-<tr><td>created_by</td><td>Integer (FK→User)</td><td>创建者</td></tr>
-<tr><td>file_path</td><td>String</td><td>文件路径</td></tr>
-<tr><td>line_number</td><td>Integer</td><td>行号</td></tr>
-<tr><td>created_at</td><td>DateTime</td><td>创建时间</td></tr>
+<tr><td>id</td><td>String(36)</td><td>PK, UUID</td><td>主键</td></tr>
+<tr><td>repo_path</td><td>Text</td><td>NOT NULL</td><td>仓库路径</td></tr>
+<tr><td>mode</td><td>String(16)</td><td>NOT NULL</td><td>扫描模式: diff / files / full</td></tr>
+<tr><td>target_commit</td><td>String(64)</td><td></td><td>增量扫描目标 commit</td></tr>
+<tr><td>file_paths</td><td>Text</td><td></td><td>文件列表 (JSON 数组)</td></tr>
+<tr><td>status</td><td>String(16)</td><td>default=“pending”</td><td>状态 (见状态机)</td></tr>
+<tr><td>total_files</td><td>Integer</td><td>default=0</td><td>总文件数</td></tr>
+<tr><td>completed_files</td><td>Integer</td><td>default=0</td><td>已完成文件数</td></tr>
+<tr><td>failed_files</td><td>Integer</td><td>default=0</td><td>失败文件数</td></tr>
+<tr><td>report_dir</td><td>Text</td><td></td><td>报告目录</td></tr>
+<tr><td>created_at</td><td>DateTime(tz)</td><td>server_default=now</td><td>创建时间</td></tr>
+<tr><td>started_at</td><td>DateTime(tz)</td><td></td><td>开始时间</td></tr>
+<tr><td>completed_at</td><td>DateTime(tz)</td><td></td><td>完成时间</td></tr>
+<tr><td>cancelled_at</td><td>DateTime(tz)</td><td></td><td>取消时间</td></tr>
+<tr><td>checkpoint_data</td><td>Text</td><td></td><td>断点续扫数据 (JSON)</td></tr>
+<tr><td>base_commit</td><td>String(64)</td><td></td><td>扫描起始 commit</td></tr>
+<tr><td>scan_stats</td><td>Text</td><td></td><td>扫描统计 (JSON)</td></tr>
+<tr><td>resumed_from_id</td><td>String(36)</td><td>FK-&gt;jobs.id</td><td>恢复自哪个 Job</td></tr>
+<tr><td>assigned_worker_id</td><td>String(64)</td><td></td><td>分配的 Worker ID</td></tr>
+<tr><td>dispatch_error</td><td>Text</td><td></td><td>调度错误信息</td></tr>
 </tbody>
 </table>
 </div>
-<h3 id="memoryrule"><a class="header" href="#memoryrule">MemoryRule</a></h3>
+<p><strong>Job 状态机</strong>:</p>
+<pre><code>pending -&gt; queued -&gt; dispatched -&gt; running -&gt; completed
+                                      |
+                                      +--&gt; failed
+                                      +--&gt; cancelled
+                                      +--&gt; interrupted -&gt; resumed -&gt; running
+</code></pre>
+<h2 id="task"><a class="header" href="#task">Task</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>字段</th><th>类型</th><th>说明</th></tr>
+<tr><th>字段</th><th>类型</th><th>约束</th><th>说明</th></tr>
 </thead>
 <tbody>
-<tr><td>id</td><td>Integer (PK)</td><td>自增主键</td></tr>
-<tr><td>title</td><td>String</td><td>规则标题</td></tr>
-<tr><td>description</td><td>Text</td><td>规则描述</td></tr>
-<tr><td>rule_type</td><td>String</td><td>positive / negative</td></tr>
-<tr><td>category</td><td>String</td><td>分类</td></tr>
-<tr><td>scope</td><td>String</td><td>personal / global</td></tr>
-<tr><td>created_by</td><td>Integer (FK→User)</td><td>创建者</td></tr>
-<tr><td>approved_by</td><td>Integer (FK→User)</td><td>审批者</td></tr>
-<tr><td>status</td><td>String</td><td>pending / approved / rejected</td></tr>
-<tr><td>created_at</td><td>DateTime</td><td>创建时间</td></tr>
+<tr><td>id</td><td>String(36)</td><td>PK, UUID</td><td>主键</td></tr>
+<tr><td>job_id</td><td>String(36)</td><td>FK-&gt;jobs.id, NOT NULL</td><td>所属 Job</td></tr>
+<tr><td>file_path</td><td>Text</td><td>NOT NULL</td><td>扫描文件路径</td></tr>
+<tr><td>slot_id</td><td>Integer</td><td></td><td>执行槽位 ID</td></tr>
+<tr><td>worker_id</td><td>String(64)</td><td></td><td>执行 Worker ID</td></tr>
+<tr><td>status</td><td>String(16)</td><td>default=“pending”</td><td>状态: pending / running / done / failed</td></tr>
+<tr><td>report_file</td><td>Text</td><td></td><td>报告文件路径</td></tr>
+<tr><td>log_file</td><td>Text</td><td></td><td>日志文件路径</td></tr>
+<tr><td>started_at</td><td>DateTime(tz)</td><td></td><td>开始时间</td></tr>
+<tr><td>completed_at</td><td>DateTime(tz)</td><td></td><td>完成时间</td></tr>
+<tr><td>duration_seconds</td><td>Float</td><td></td><td>执行耗时 (秒)</td></tr>
+<tr><td>return_code</td><td>Integer</td><td></td><td>子进程返回码</td></tr>
+<tr><td>error_message</td><td>Text</td><td></td><td>错误信息</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="vulnerability"><a class="header" href="#vulnerability">Vulnerability</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>字段</th><th>类型</th><th>约束</th><th>说明</th></tr>
+</thead>
+<tbody>
+<tr><td>id</td><td>String(36)</td><td>PK, UUID</td><td>主键</td></tr>
+<tr><td>job_id</td><td>String(36)</td><td>FK-&gt;jobs.id, NOT NULL</td><td>所属 Job</td></tr>
+<tr><td>task_id</td><td>String(36)</td><td>FK-&gt;tasks.id</td><td>所属 Task</td></tr>
+<tr><td>worker_id</td><td>String(64)</td><td></td><td>发现 Worker</td></tr>
+<tr><td>vuln_id</td><td>String(32)</td><td>NOT NULL</td><td>漏洞标识</td></tr>
+<tr><td>file_path</td><td>Text</td><td>NOT NULL</td><td>文件路径</td></tr>
+<tr><td>line_start</td><td>Integer</td><td></td><td>起始行</td></tr>
+<tr><td>line_end</td><td>Integer</td><td></td><td>结束行</td></tr>
+<tr><td>severity</td><td>String(16)</td><td>NOT NULL</td><td>严重度: critical / high / medium / low</td></tr>
+<tr><td>vuln_type</td><td>String(32)</td><td>NOT NULL</td><td>漏洞类型</td></tr>
+<tr><td>title</td><td>Text</td><td>NOT NULL</td><td>漏洞标题</td></tr>
+<tr><td>description</td><td>Text</td><td></td><td>详细描述</td></tr>
+<tr><td>raw_json</td><td>Text</td><td></td><td>原始 JSON 数据</td></tr>
+<tr><td>status</td><td>String(16)</td><td>default=“open”</td><td>状态: open / accepted / rejected / assigned</td></tr>
+<tr><td>generated_at</td><td>DateTime(tz)</td><td>server_default=now</td><td>生成时间</td></tr>
+<tr><td>accepted_at</td><td>DateTime(tz)</td><td></td><td>接受时间</td></tr>
+<tr><td>accepted_by</td><td>String(36)</td><td>FK-&gt;users.id</td><td>接受人</td></tr>
+<tr><td>rejected_at</td><td>DateTime(tz)</td><td></td><td>拒绝时间</td></tr>
+<tr><td>rejected_by</td><td>String(36)</td><td>FK-&gt;users.id</td><td>拒绝人</td></tr>
+<tr><td>assigned_to</td><td>String(36)</td><td>FK-&gt;users.id</td><td>分配给</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="memoryrule"><a class="header" href="#memoryrule">MemoryRule</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>字段</th><th>类型</th><th>约束</th><th>说明</th></tr>
+</thead>
+<tbody>
+<tr><td>id</td><td>String(36)</td><td>PK, UUID</td><td>主键</td></tr>
+<tr><td>source_vuln_id</td><td>String(36)</td><td>FK-&gt;vulnerabilities.id</td><td>来源漏洞</td></tr>
+<tr><td>rule_type</td><td>String(16)</td><td>NOT NULL</td><td>类型: positive / negative</td></tr>
+<tr><td>scope</td><td>String(16)</td><td>NOT NULL</td><td>范围: personal / global</td></tr>
+<tr><td>owner_id</td><td>String(36)</td><td>FK-&gt;users.id</td><td>所属用户</td></tr>
+<tr><td>file_pattern</td><td>String(512)</td><td></td><td>文件匹配模式</td></tr>
+<tr><td>code_pattern</td><td>String(512)</td><td></td><td>代码匹配模式</td></tr>
+<tr><td>vuln_type_filter</td><td>String(32)</td><td></td><td>漏洞类型过滤</td></tr>
+<tr><td>title</td><td>Text</td><td>NOT NULL</td><td>规则标题</td></tr>
+<tr><td>description</td><td>Text</td><td></td><td>规则描述</td></tr>
+<tr><td>is_active</td><td>Boolean</td><td>default=True</td><td>是否启用</td></tr>
+<tr><td>created_at</td><td>DateTime(tz)</td><td>server_default=now</td><td>创建时间</td></tr>
+<tr><td>created_by</td><td>String(36)</td><td>FK-&gt;users.id</td><td>创建者</td></tr>
+<tr><td>approved_at</td><td>DateTime(tz)</td><td></td><td>审批时间</td></tr>
+<tr><td>approved_by</td><td>String(36)</td><td>FK-&gt;users.id</td><td>审批人</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="schedulerconfig"><a class="header" href="#schedulerconfig">SchedulerConfig</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>字段</th><th>类型</th><th>约束</th><th>说明</th></tr>
+</thead>
+<tbody>
+<tr><td>id</td><td>String(36)</td><td>PK, UUID</td><td>主键</td></tr>
+<tr><td>job_name</td><td>String(64)</td><td>UNIQUE, NOT NULL</td><td>任务名称</td></tr>
+<tr><td>job_type</td><td>String(32)</td><td>NOT NULL</td><td>类型: scan / stop</td></tr>
+<tr><td>cron_expression</td><td>String(64)</td><td>NOT NULL</td><td>Cron 表达式</td></tr>
+<tr><td>is_enabled</td><td>Boolean</td><td>default=True</td><td>是否启用</td></tr>
+<tr><td>last_run_at</td><td>DateTime(tz)</td><td></td><td>上次运行时间</td></tr>
+<tr><td>next_run_at</td><td>DateTime(tz)</td><td></td><td>下次运行时间</td></tr>
+<tr><td>created_at</td><td>DateTime(tz)</td><td>server_default=now</td><td>创建时间</td></tr>
+<tr><td>updated_at</td><td>DateTime(tz)</td><td>onupdate=now</td><td>更新时间</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="workergitstatus"><a class="header" href="#workergitstatus">WorkerGitStatus</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>字段</th><th>类型</th><th>约束</th><th>说明</th></tr>
+</thead>
+<tbody>
+<tr><td>id</td><td>String(36)</td><td>PK, UUID</td><td>主键</td></tr>
+<tr><td>worker_id</td><td>String(64)</td><td>UNIQUE, NOT NULL</td><td>Worker ID</td></tr>
+<tr><td>head_commit</td><td>String(64)</td><td></td><td>HEAD commit hash</td></tr>
+<tr><td>added_files</td><td>Integer</td><td>default=0</td><td>新增文件数</td></tr>
+<tr><td>modified_files</td><td>Integer</td><td>default=0</td><td>修改文件数</td></tr>
+<tr><td>deleted_files</td><td>Integer</td><td>default=0</td><td>删除文件数</td></tr>
+<tr><td>changed_lines</td><td>Integer</td><td>default=0</td><td>变更行数</td></tr>
+<tr><td>total_cpp_files</td><td>Integer</td><td>default=0</td><td>C/C++ 文件总数</td></tr>
+<tr><td>updated_at</td><td>DateTime(tz)</td><td>onupdate=now</td><td>更新时间</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="workerscheduleconfig"><a class="header" href="#workerscheduleconfig">WorkerScheduleConfig</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>字段</th><th>类型</th><th>约束</th><th>说明</th></tr>
+</thead>
+<tbody>
+<tr><td>id</td><td>String(36)</td><td>PK, UUID</td><td>主键</td></tr>
+<tr><td>worker_id</td><td>String(64)</td><td>UNIQUE, NOT NULL</td><td>Worker ID</td></tr>
+<tr><td>scan_hour</td><td>Integer</td><td>default=0</td><td>扫描开始时</td></tr>
+<tr><td>scan_minute</td><td>Integer</td><td>default=0</td><td>扫描开始分</td></tr>
+<tr><td>stop_hour</td><td>Integer</td><td>default=9</td><td>扫描停止时</td></tr>
+<tr><td>stop_minute</td><td>Integer</td><td>default=0</td><td>扫描停止分</td></tr>
+<tr><td>is_enabled</td><td>Boolean</td><td>default=True</td><td>是否启用</td></tr>
+<tr><td>timezone</td><td>String(32)</td><td>default=“Asia/Shanghai”</td><td>时区</td></tr>
+<tr><td>created_at</td><td>DateTime(tz)</td><td>server_default=now</td><td>创建时间</td></tr>
+<tr><td>updated_at</td><td>DateTime(tz)</td><td>onupdate=now</td><td>更新时间</td></tr>
 </tbody>
 </table>
 </div>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="认证与授权"><a class="header" href="#认证与授权">认证与授权</a></h1>
-<h2 id="认证机制"><a class="header" href="#认证机制">认证机制</a></h2>
-<p>系统使用 JWT (HS256) + bcrypt 进行认证：</p>
+<h2 id="jwt-认证"><a class="header" href="#jwt-认证">JWT 认证</a></h2>
+<p>后端使用 JWT (HS256) 进行身份认证：</p>
 <ol>
-<li>用户通过 <code>POST /api/auth/login</code> 提交用户名和密码</li>
-<li>服务端使用 bcrypt 验证密码哈希</li>
-<li>验证通过后签发 JWT Token（有效期 7 天）</li>
-<li>前端将 Token 存储在 <code>localStorage</code> 中</li>
-<li>后续请求通过 <code>Authorization: Bearer &lt;token&gt;</code> 头携带</li>
+<li><code>POST /api/auth/login</code> — 用户名+密码换取 Token</li>
+<li>后续请求携带 <code>Authorization: Bearer &lt;token&gt;</code></li>
+<li>Token 过期后需重新登录</li>
 </ol>
-<h3 id="jwt-token-结构"><a class="header" href="#jwt-token-结构">JWT Token 结构</a></h3>
-<pre><code class="language-json">{
-  "sub": "admin",
-  "role": "admin",
-  "exp": 1748000000
-}
-</code></pre>
-<h3 id="关键函数"><a class="header" href="#关键函数">关键函数</a></h3>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>函数</th><th>位置</th><th>说明</th></tr>
-</thead>
-<tbody>
-<tr><td><code>hash_password()</code></td><td><code>backend/services/auth_service.py</code></td><td>bcrypt 哈希</td></tr>
-<tr><td><code>verify_password()</code></td><td><code>backend/services/auth_service.py</code></td><td>bcrypt 验证</td></tr>
-<tr><td><code>create_access_token()</code></td><td><code>backend/services/auth_service.py</code></td><td>JWT 签发</td></tr>
-<tr><td><code>decode_token()</code></td><td><code>backend/services/auth_service.py</code></td><td>JWT 解码验证</td></tr>
-<tr><td><code>get_current_user()</code></td><td><code>backend/routers/auth.py</code></td><td>FastAPI 依赖，从 Bearer Token 解析用户</td></tr>
-<tr><td><code>require_role()</code></td><td><code>backend/routers/auth.py</code></td><td>FastAPI 依赖，角色校验工厂函数</td></tr>
-</tbody>
-</table>
-</div>
+<p><strong>默认账户</strong>: admin / admin123</p>
 <h2 id="角色体系"><a class="header" href="#角色体系">角色体系</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>角色</th><th>权限</th></tr>
+<tr><th>角色</th><th>说明</th></tr>
 </thead>
 <tbody>
-<tr><td><strong>admin</strong></td><td>全部权限：用户管理、全局 Memory Rule 审批、扫描触发、漏洞管理</td></tr>
-<tr><td><strong>committer</strong></td><td>漏洞管理、Memory Rule 审批、扫描触发</td></tr>
-<tr><td><strong>user</strong></td><td>查看仪表盘、查看漏洞、创建个人 Memory Rule</td></tr>
+<tr><td>admin</td><td>系统管理员，拥有所有权限</td></tr>
+<tr><td>committer</td><td>代码提交者，可审批 Memory Rule</td></tr>
+<tr><td>user</td><td>普通用户，可创建作业和管理自己的 Worker</td></tr>
 </tbody>
 </table>
 </div>
-<h3 id="权限矩阵"><a class="header" href="#权限矩阵">权限矩阵</a></h3>
+<h2 id="权限矩阵"><a class="header" href="#权限矩阵">权限矩阵</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>功能</th><th>admin</th><th>committer</th><th>user</th></tr>
+<tr><th>操作</th><th>admin</th><th>committer</th><th>user</th></tr>
 </thead>
 <tbody>
-<tr><td>查看仪表盘</td><td>✅</td><td>✅</td><td>✅</td></tr>
-<tr><td>触发扫描</td><td>✅</td><td>✅</td><td>❌</td></tr>
-<tr><td>查看漏洞</td><td>✅</td><td>✅</td><td>✅</td></tr>
-<tr><td>接受/拒绝漏洞</td><td>✅</td><td>✅</td><td>❌</td></tr>
-<tr><td>创建个人 Memory Rule</td><td>✅</td><td>✅</td><td>✅</td></tr>
-<tr><td>创建全局 Memory Rule</td><td>✅</td><td>✅</td><td>❌</td></tr>
-<tr><td>审批 Memory Rule</td><td>✅</td><td>✅</td><td>❌</td></tr>
-<tr><td>用户管理 CRUD</td><td>✅</td><td>❌</td><td>❌</td></tr>
-<tr><td>Worker 管理</td><td>✅</td><td>✅</td><td>❌</td></tr>
+<tr><td>查看所有 Worker</td><td>Y</td><td>N</td><td>N</td></tr>
+<tr><td>管理 Worker (CRUD)</td><td>Y</td><td>仅自己</td><td>仅自己</td></tr>
+<tr><td>部署 Worker</td><td>Y</td><td>仅自己</td><td>仅自己</td></tr>
+<tr><td>创建扫描作业</td><td>Y</td><td>Y</td><td>Y</td></tr>
+<tr><td>取消/恢复作业</td><td>Y</td><td>Y</td><td>仅自己</td></tr>
+<tr><td>查看所有漏洞</td><td>Y</td><td>Y</td><td>Y</td></tr>
+<tr><td>Accept/Reject 漏洞</td><td>Y</td><td>Y</td><td>N</td></tr>
+<tr><td>Assign 漏洞</td><td>Y</td><td>Y</td><td>N</td></tr>
+<tr><td>创建 Personal Memory Rule</td><td>Y</td><td>Y</td><td>Y</td></tr>
+<tr><td>创建 Global Memory Rule</td><td>Y</td><td>Y</td><td>N</td></tr>
+<tr><td>审批 Memory Rule</td><td>Y</td><td>Y</td><td>N</td></tr>
+<tr><td>提交 Personal 为 Global</td><td>Y</td><td>Y</td><td>Y</td></tr>
+<tr><td>用户管理 CRUD</td><td>Y</td><td>N</td><td>N</td></tr>
+<tr><td>触发全局扫描</td><td>Y</td><td>N</td><td>N</td></tr>
+<tr><td>获取 Deploy Key</td><td>Y</td><td>Y</td><td>Y</td></tr>
+<tr><td>管理 Schedule</td><td>Y</td><td>Y</td><td>仅自己</td></tr>
 </tbody>
 </table>
 </div>
-<h2 id="前端认证流程"><a class="header" href="#前端认证流程">前端认证流程</a></h2>
-<pre><code class="language-tsx">// AuthContext.tsx
-const login = async (username, password) =&gt; {
-  const res = await api.post('/api/auth/login', { username, password });
-  localStorage.setItem('token', res.data.access_token);
-  setUser(await fetchMe());
-};
-
-// useApi.ts — 自动携带 Token
-const headers = { Authorization: `Bearer ${token}` };
-</code></pre>
-<p>未认证时自动重定向至 LoginPage。</p>
+<h2 id="worker-所有权隔离"><a class="header" href="#worker-所有权隔离">Worker 所有权隔离</a></h2>
+<p>Worker 模型有 owner_id 字段，实现所有权隔离：</p>
+<ul>
+<li><strong>user/committer</strong> 只能查看和管理 owner_id 等于自己的 Worker</li>
+<li><strong>admin</strong> 可查看所有 Worker</li>
+<li>创建 Worker 时自动设置 owner_id 为当前用户</li>
+<li>部署、删除、更新操作受所有权约束</li>
+</ul>
+<h2 id="finalize-端点特殊说明"><a class="header" href="#finalize-端点特殊说明">/finalize 端点特殊说明</a></h2>
+<p><code>POST /api/jobs/{job_id}/finalize</code> 不要求 JWT 认证，因为它是被 Remote Agent 调用的。Agent 在扫描完成后通过此端点上报结果。Agent 本身通过 worker_id 标识身份。</p>
+<blockquote>
+<p><strong>安全考虑</strong>: 未来版本可能增加 Agent Token 机制，为每个 Agent 分配独立的认证凭据。</p>
+</blockquote>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="后端"><a class="header" href="#后端">后端</a></h1>
 <p>FastAPI 后端的详细文档，包括入口、API 路由、核心服务和配置基础设施。</p>
 <p>请从左侧导航选择具体章节：</p>
 <ul>
-<li><a href="#后端概览与入口">概览与入口</a> — main.py 启动生命周期、路由挂载、配置</li>
+<li><a href="#后端概览与入口">概览与入口</a> — main.py 启动生命周期、Dispatcher 循环、Deploy Key 初始化、SPA 路由</li>
 <li><a href="#api-路由">API 路由</a> — 9 个路由模块的完整 API 参考</li>
-<li><a href="#核心服务">核心服务</a> — Auth、Worker、Scheduler、Runner、Git Sync、Report Parser</li>
-<li><a href="#配置与基础设施">配置与基础设施</a> — 配置、数据库、Redis、Schema、测试</li>
+<li><a href="#核心服务">核心服务</a> — Auth、Worker、Dispatcher、Deployer、Deploy Key、Git Sync、Report Parser</li>
+<li><a href="#配置与基础设施">配置与基础设施</a> — 配置、数据库、Redis 命名、Pydantic Schema、测试</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="后端概览与入口"><a class="header" href="#后端概览与入口">后端概览与入口</a></h1>
@@ -694,12 +856,14 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     # 2. Seed 默认管理员 (admin/admin123)
     seed_default_admin()
-    # 3. 启动 APScheduler 调度器
+    # 3. 生成 SSH Deploy Key (~/.opencode/keys/id_ed25519)
+    ensure_deploy_key()
+    # 4. 启动 APScheduler 调度器
     scheduler = get_scheduler()
     scheduler.start()
-    # 4. 启动本地 Worker 循环
-    asyncio.create_task(worker_loop())
-    # 5. 初始化 Redis 连接池
+    # 5. 启动 Dispatcher 调度循环 (后台任务)
+    asyncio.create_task(dispatcher_loop())
+    # 6. 初始化 Redis 连接池
     await redis_client.initialize()
     yield
     # 清理
@@ -712,20 +876,20 @@ async def lifespan(app: FastAPI):
 <tr><th>路由前缀</th><th>模块</th><th>说明</th></tr>
 </thead>
 <tbody>
-<tr><td><code>/api/jobs</code></td><td><code>routers/jobs.py</code></td><td>扫描作业管理</td></tr>
+<tr><td><code>/api/auth</code></td><td><code>routers/auth.py</code></td><td>认证 (login/me)</td></tr>
+<tr><td><code>/api/jobs</code></td><td><code>routers/jobs.py</code></td><td>扫描作业管理 (含 /finalize, /resume, /cancel)</td></tr>
+<tr><td><code>/api/workers</code></td><td><code>routers/workers.py</code></td><td>Worker 节点管理 (含 /deploy, /deploy-logs, /deploy-key)</td></tr>
 <tr><td><code>/api/sse</code></td><td><code>routers/sse.py</code></td><td>Server-Sent Events</td></tr>
 <tr><td><code>/api/slot</code></td><td><code>routers/slots.py</code></td><td>Worker Slot 管理</td></tr>
 <tr><td><code>/api/reports</code></td><td><code>routers/reports.py</code></td><td>报告查看</td></tr>
-<tr><td><code>/api/workers</code></td><td><code>routers/workers.py</code></td><td>Worker 节点管理</td></tr>
-<tr><td><code>/api/auth</code></td><td><code>routers/auth.py</code></td><td>认证</td></tr>
 <tr><td><code>/api/users</code></td><td><code>routers/users.py</code></td><td>用户管理</td></tr>
 <tr><td><code>/api/vulnerabilities</code></td><td><code>routers/vulnerabilities.py</code></td><td>漏洞管理</td></tr>
-<tr><td><code>/api/memory-rules</code></td><td><code>routers/memory.py</code></td><td>Memory Rule 管理</td></tr>
+<tr><td><code>/api/memory-rules</code></td><td><code>routers/memory.py</code></td><td>Memory Rule 管理 (含 /submit-global)</td></tr>
 </tbody>
 </table>
 </div>
-<h3 id="静态文件服务"><a class="header" href="#静态文件服务">静态文件服务</a></h3>
-<p>前端构建产物 (<code>frontend/dist/</code>) 通过 FastAPI StaticFiles 中间件直接提供服务：</p>
+<h3 id="spa-路由兜底"><a class="header" href="#spa-路由兜底">SPA 路由兜底</a></h3>
+<p>前端构建产物通过 FastAPI StaticFiles 中间件提供服务，所有非 /api/ 路径返回 index.html：</p>
 <pre><code class="language-python">app.mount("/", StaticFiles(directory="frontend/dist", html=True))
 </code></pre>
 <h2 id="配置"><a class="header" href="#配置">配置</a></h2>
@@ -743,7 +907,6 @@ Base = declarative_base()
 </code></pre>
 <h2 id="redis-客户端"><a class="header" href="#redis-客户端">Redis 客户端</a></h2>
 <p><strong><code>backend/redis_client.py</code></strong> — 异步 Redis 连接池</p>
-<p>提供以下核心功能：</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -752,53 +915,85 @@ Base = declarative_base()
 <tbody>
 <tr><td><code>publish_log(channel, message)</code></td><td>发布日志消息到 Pub/Sub</td></tr>
 <tr><td><code>publish_meta(channel, data)</code></td><td>发布元数据到 Pub/Sub</td></tr>
-<tr><td><code>push_job_queue(job_data)</code></td><td>LPUSH 作业到队列</td></tr>
-<tr><td><code>pop_job_queue(timeout)</code></td><td>BRPOP 从队列取作业</td></tr>
+<tr><td><code>push_job_queue(job_data)</code></td><td>LPUSH 作业到 scan:job:queue</td></tr>
+<tr><td><code>pop_job_queue(timeout)</code></td><td>BRPOP 从 scan:job:queue 取作业</td></tr>
 </tbody>
 </table>
 </div>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="api-路由"><a class="header" href="#api-路由">API 路由</a></h1>
-<h2 id="jobs-router-routersjobspy"><a class="header" href="#jobs-router-routersjobspy">Jobs Router (<code>routers/jobs.py</code>)</a></h2>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>方法</th><th>路径</th><th>说明</th><th>权限</th></tr>
-</thead>
-<tbody>
-<tr><td>POST</td><td><code>/api/jobs</code></td><td>创建扫描作业</td><td>admin/committer</td></tr>
-<tr><td>GET</td><td><code>/api/jobs</code></td><td>获取作业列表</td><td>认证用户</td></tr>
-<tr><td>GET</td><td><code>/api/jobs/{id}</code></td><td>获取作业详情</td><td>认证用户</td></tr>
-<tr><td>POST</td><td><code>/api/jobs/{id}/cancel</code></td><td>取消作业</td><td>admin/committer</td></tr>
-<tr><td>POST</td><td><code>/api/jobs/{id}/resume</code></td><td>恢复已取消的作业</td><td>admin/committer</td></tr>
-<tr><td>POST</td><td><code>/api/jobs/{id}/git-sync</code></td><td>Git 增量同步</td><td>admin/committer</td></tr>
-</tbody>
-</table>
-</div>
-<h3 id="创建作业"><a class="header" href="#创建作业">创建作业</a></h3>
-<pre><code class="language-bash">curl -X POST http://localhost:8000/api/jobs \
-  -H "Authorization: Bearer &lt;token&gt;" \
-  -H "Content-Type: application/json" \
-  -d '{"repo_path": "/path/to/repo", "worker_id": "local"}'
-</code></pre>
-<h3 id="git-增量同步"><a class="header" href="#git-增量同步">Git 增量同步</a></h3>
-<p>当调用 <code>git-sync</code> 时，系统对比当前 HEAD 与上次扫描的 commit，仅扫描变更的 C/C++ 文件，大幅降低 LLM 推理成本。</p>
-<h2 id="sse-router-routersssepy"><a class="header" href="#sse-router-routersssepy">SSE Router (<code>routers/sse.py</code>)</a></h2>
+<p>所有 API 路由定义于 <code>backend/routers/</code>，共 9 个模块。</p>
+<h2 id="auth-apiauth"><a class="header" href="#auth-apiauth">Auth (<code>/api/auth</code>)</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>方法</th><th>路径</th><th>说明</th></tr>
 </thead>
 <tbody>
-<tr><td>GET</td><td><code>/api/sse/{slot_id}</code></td><td>Legacy SSE 通道</td></tr>
-<tr><td>GET</td><td><code>/api/sse/worker/{worker_id}/{slot_id}</code></td><td>Worker 级 SSE 通道</td></tr>
+<tr><td>POST</td><td><code>/api/auth/login</code></td><td>用户名+密码登录，返回 JWT Token</td></tr>
+<tr><td>GET</td><td><code>/api/auth/me</code></td><td>获取当前用户信息 (需认证)</td></tr>
+<tr><td>PUT</td><td><code>/api/auth/me/show-thinking</code></td><td>切换当前用户的 show_thinking 偏好</td></tr>
 </tbody>
 </table>
 </div>
-<p>SSE 连接订阅 Redis Pub/Sub 频道，将 Worker 日志实时推送至浏览器：</p>
-<pre><code>EventSource → /api/sse/worker/local/0 → Redis SUBSCRIBE worker_local_slot_0
-</code></pre>
-<h2 id="slots-router-routersslotspy"><a class="header" href="#slots-router-routersslotspy">Slots Router (<code>routers/slots.py</code>)</a></h2>
+<h2 id="jobs-apijobs"><a class="header" href="#jobs-apijobs">Jobs (<code>/api/jobs</code>)</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>方法</th><th>路径</th><th>说明</th></tr>
+</thead>
+<tbody>
+<tr><td>POST</td><td><code>/api/jobs</code></td><td>创建扫描作业，推入 Redis 队列</td></tr>
+<tr><td>GET</td><td><code>/api/jobs</code></td><td>列出所有作业 (按创建时间倒序)</td></tr>
+<tr><td>GET</td><td><code>/api/jobs/{job_id}</code></td><td>获取单个作业详情</td></tr>
+<tr><td>POST</td><td><code>/api/jobs/{job_id}/progress</code></td><td>Orchestrator 上报任务进度</td></tr>
+<tr><td>POST</td><td><code>/api/jobs/{job_id}/complete</code></td><td>Worker 上报作业完成 (含 Task 结果)</td></tr>
+<tr><td>POST</td><td><code>/api/jobs/{job_id}/finalize</code></td><td>Agent 扫描完成回调：批量创建 Task/Vulnerability，写入报告文件 (无需认证)</td></tr>
+<tr><td>POST</td><td><code>/api/jobs/{job_id}/resume</code></td><td>从断点恢复中断/失败的作业</td></tr>
+<tr><td>POST</td><td><code>/api/jobs/{job_id}/cancel</code></td><td>取消运行中或排队的作业</td></tr>
+<tr><td>GET</td><td><code>/api/jobs/stats/git-sync</code></td><td>获取自上次全量扫描以来的 Git 变更统计</td></tr>
+<tr><td>GET</td><td><code>/api/jobs/scheduler/status</code></td><td>获取调度器状态，可选 worker_id 查询参数</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="workers-apiworkers"><a class="header" href="#workers-apiworkers">Workers (<code>/api/workers</code>)</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>方法</th><th>路径</th><th>说明</th></tr>
+</thead>
+<tbody>
+<tr><td>POST</td><td><code>/api/workers/{worker_id}/register</code></td><td>Agent 自注册 (无需认证)</td></tr>
+<tr><td>POST</td><td><code>/api/workers/{worker_id}/heartbeat</code></td><td>Agent 心跳上报 (无需认证)</td></tr>
+<tr><td>GET</td><td><code>/api/workers</code></td><td>列出 Worker (非 admin 按所有权过滤)</td></tr>
+<tr><td>GET</td><td><code>/api/workers/deploy-key</code></td><td>获取后端 SSH Deploy 公钥</td></tr>
+<tr><td>GET</td><td><code>/api/workers/{worker_id}</code></td><td>获取单个 Worker 详情 (所有权校验)</td></tr>
+<tr><td>PUT</td><td><code>/api/workers/{worker_id}/show-thinking</code></td><td>切换 Worker 的 show_thinking</td></tr>
+<tr><td>GET</td><td><code>/api/workers/{worker_id}/git-status</code></td><td>获取 Worker Git 状态快照</td></tr>
+<tr><td>GET</td><td><code>/api/workers/git-status/all</code></td><td>获取所有 Worker Git 状态</td></tr>
+<tr><td>GET</td><td><code>/api/workers/{worker_id}/schedule</code></td><td>获取 Worker 定时扫描配置</td></tr>
+<tr><td>PUT</td><td><code>/api/workers/{worker_id}/schedule</code></td><td>更新 Worker 定时扫描配置</td></tr>
+<tr><td>POST</td><td><code>/api/workers</code></td><td>创建新 Worker (含 SSH 配置)</td></tr>
+<tr><td>POST</td><td><code>/api/workers/{worker_id}/deploy</code></td><td>触发 SSH 自动部署 (BackgroundTask)</td></tr>
+<tr><td>GET</td><td><code>/api/workers/{worker_id}/deploy-logs</code></td><td>获取部署日志 (JSON 数组)</td></tr>
+<tr><td>PUT</td><td><code>/api/workers/{worker_id}</code></td><td>更新 Worker 配置</td></tr>
+<tr><td>DELETE</td><td><code>/api/workers/{worker_id}</code></td><td>删除 Worker 及关联数据</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="sse-apisse"><a class="header" href="#sse-apisse">SSE (<code>/api/sse</code>)</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>方法</th><th>路径</th><th>说明</th></tr>
+</thead>
+<tbody>
+<tr><td>GET</td><td><code>/api/sse/{slot_id}</code></td><td>Slot 日志 SSE 流 (旧格式)</td></tr>
+<tr><td>GET</td><td><code>/api/sse/{worker_id}/{slot_id}</code></td><td>Worker Slot 日志 SSE 流 (带 token 查询参数)</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="slots-apislot"><a class="header" href="#slots-apislot">Slots (<code>/api/slot</code>)</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -806,202 +1001,156 @@ Base = declarative_base()
 </thead>
 <tbody>
 <tr><td>POST</td><td><code>/api/slot/{worker_id}/{slot_id}/acquire</code></td><td>占用槽位</td></tr>
-<tr><td>POST</td><td><code>/api/slot/{worker_id}/{slot_id}/push</code></td><td>推送日志/元数据</td></tr>
-<tr><td>GET</td><td><code>/api/slot/{worker_id}/{slot_id}/status</code></td><td>查询槽位状态</td></tr>
+<tr><td>POST</td><td><code>/api/slot/{worker_id}/{slot_id}/push</code></td><td>推送日志到槽位 (Pub/Sub)</td></tr>
+<tr><td>POST</td><td><code>/api/slot/{worker_id}/{slot_id}/status</code></td><td>更新槽位状态</td></tr>
 <tr><td>POST</td><td><code>/api/slot/{worker_id}/{slot_id}/release</code></td><td>释放槽位</td></tr>
-<tr><td>GET</td><td><code>/api/slot/{worker_id}/status</code></td><td>查询 Worker 所有槽位</td></tr>
+<tr><td>GET</td><td><code>/api/slot/{worker_id}/status</code></td><td>获取 Worker 所有槽位状态</td></tr>
 </tbody>
 </table>
 </div>
-<h2 id="workers-router-routersworkerspy"><a class="header" href="#workers-router-routersworkerspy">Workers Router (<code>routers/workers.py</code>)</a></h2>
+<h2 id="reports-apireports"><a class="header" href="#reports-apireports">Reports (<code>/api/reports</code>)</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>方法</th><th>路径</th><th>说明</th></tr>
 </thead>
 <tbody>
-<tr><td>POST</td><td><code>/api/workers/register</code></td><td>注册 Worker 节点</td></tr>
-<tr><td>POST</td><td><code>/api/workers/{id}/heartbeat</code></td><td>心跳</td></tr>
-<tr><td>GET</td><td><code>/api/workers</code></td><td>列出所有 Worker</td></tr>
-<tr><td>GET</td><td><code>/api/workers/{id}/git-status</code></td><td>Git 状态</td></tr>
-<tr><td>PUT</td><td><code>/api/workers/{id}/schedule</code></td><td>更新调度配置</td></tr>
-<tr><td>GET</td><td><code>/api/workers/{id}/schedule</code></td><td>获取调度配置</td></tr>
+<tr><td>GET</td><td><code>/api/reports/{job_id}</code></td><td>获取作业报告文件列表</td></tr>
+<tr><td>GET</td><td><code>/api/reports/{job_id}/{filepath:path}</code></td><td>获取单个报告文件内容</td></tr>
 </tbody>
 </table>
 </div>
-<h2 id="reports-router-routersreportspy"><a class="header" href="#reports-router-routersreportspy">Reports Router (<code>routers/reports.py</code>)</a></h2>
+<h2 id="vulnerabilities-apivulnerabilities"><a class="header" href="#vulnerabilities-apivulnerabilities">Vulnerabilities (<code>/api/vulnerabilities</code>)</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>方法</th><th>路径</th><th>说明</th></tr>
 </thead>
 <tbody>
-<tr><td>GET</td><td><code>/api/reports/{job_id}</code></td><td>列出作业的所有报告文件</td></tr>
-<tr><td>GET</td><td><code>/api/reports/{job_id}/{filename}</code></td><td>获取具体报告内容</td></tr>
+<tr><td>GET</td><td><code>/api/vulnerabilities</code></td><td>列出所有漏洞 (支持过滤)</td></tr>
+<tr><td>GET</td><td><code>/api/vulnerabilities/{vuln_id}</code></td><td>获取单个漏洞详情</td></tr>
+<tr><td>POST</td><td><code>/api/vulnerabilities/{vuln_id}/accept</code></td><td>接受漏洞 (自动生成正向 Memory Rule)</td></tr>
+<tr><td>POST</td><td><code>/api/vulnerabilities/{vuln_id}/reject</code></td><td>拒绝漏洞 (自动生成负向 Memory Rule)</td></tr>
+<tr><td>POST</td><td><code>/api/vulnerabilities/{vuln_id}/assign</code></td><td>分配漏洞给处理人</td></tr>
 </tbody>
 </table>
 </div>
-<h2 id="auth-router-routersauthpy"><a class="header" href="#auth-router-routersauthpy">Auth Router (<code>routers/auth.py</code>)</a></h2>
+<h2 id="memory-rules-apimemory-rules"><a class="header" href="#memory-rules-apimemory-rules">Memory Rules (<code>/api/memory-rules</code>)</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>方法</th><th>路径</th><th>说明</th></tr>
 </thead>
 <tbody>
-<tr><td>POST</td><td><code>/api/auth/login</code></td><td>登录获取 JWT</td></tr>
-<tr><td>GET</td><td><code>/api/auth/me</code></td><td>获取当前用户信息</td></tr>
+<tr><td>GET</td><td><code>/api/memory-rules</code></td><td>列出 Memory Rule (支持 scope 过滤)</td></tr>
+<tr><td>POST</td><td><code>/api/memory-rules</code></td><td>创建 Memory Rule</td></tr>
+<tr><td>POST</td><td><code>/api/memory-rules/{rule_id}/approve</code></td><td>审批 Memory Rule (pending-&gt;active)</td></tr>
+<tr><td>POST</td><td><code>/api/memory-rules/{rule_id}/submit-global</code></td><td>提交个人规则为全局</td></tr>
+<tr><td>DELETE</td><td><code>/api/memory-rules/{rule_id}</code></td><td>删除 Memory Rule</td></tr>
 </tbody>
 </table>
 </div>
-<h2 id="users-router-routersuserspy"><a class="header" href="#users-router-routersuserspy">Users Router (<code>routers/users.py</code>)</a></h2>
+<h2 id="users-apiusers"><a class="header" href="#users-apiusers">Users (<code>/api/users</code>)</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>方法</th><th>路径</th><th>说明</th><th>权限</th></tr>
+<tr><th>方法</th><th>路径</th><th>说明</th></tr>
 </thead>
 <tbody>
-<tr><td>GET</td><td><code>/api/users</code></td><td>列出所有用户</td><td>admin</td></tr>
-<tr><td>POST</td><td><code>/api/users</code></td><td>创建用户</td><td>admin</td></tr>
-<tr><td>DELETE</td><td><code>/api/users/{id}</code></td><td>删除用户</td><td>admin</td></tr>
-</tbody>
-</table>
-</div>
-<h2 id="vulnerabilities-router-routersvulnerabilitiespy"><a class="header" href="#vulnerabilities-router-routersvulnerabilitiespy">Vulnerabilities Router (<code>routers/vulnerabilities.py</code>)</a></h2>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>方法</th><th>路径</th><th>说明</th><th>权限</th></tr>
-</thead>
-<tbody>
-<tr><td>GET</td><td><code>/api/vulnerabilities</code></td><td>列出漏洞（支持过滤）</td><td>认证用户</td></tr>
-<tr><td>GET</td><td><code>/api/vulnerabilities/{id}</code></td><td>获取漏洞详情</td><td>认证用户</td></tr>
-<tr><td>POST</td><td><code>/api/vulnerabilities/{id}/accept</code></td><td>接受漏洞</td><td>admin/committer</td></tr>
-<tr><td>POST</td><td><code>/api/vulnerabilities/{id}/reject</code></td><td>拒绝漏洞</td><td>admin/committer</td></tr>
-<tr><td>POST</td><td><code>/api/vulnerabilities/{id}/assign</code></td><td>分配漏洞</td><td>admin/committer</td></tr>
-</tbody>
-</table>
-</div>
-<h3 id="接受漏洞的副作用"><a class="header" href="#接受漏洞的副作用">接受漏洞的副作用</a></h3>
-<p>调用 <code>accept</code> 时，系统自动创建一条正向 Memory Rule（status=pending），需要 committer+ 审批后才生效。</p>
-<h3 id="拒绝漏洞的副作用"><a class="header" href="#拒绝漏洞的副作用">拒绝漏洞的副作用</a></h3>
-<p>调用 <code>reject</code> 时，系统自动创建一条负向 Memory Rule（status=approved），立即生效，后续扫描将忽略此类误报。</p>
-<h2 id="memory-router-routersmemorypy"><a class="header" href="#memory-router-routersmemorypy">Memory Router (<code>routers/memory.py</code>)</a></h2>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>方法</th><th>路径</th><th>说明</th><th>权限</th></tr>
-</thead>
-<tbody>
-<tr><td>GET</td><td><code>/api/memory-rules</code></td><td>列出 Memory Rule</td><td>认证用户</td></tr>
-<tr><td>POST</td><td><code>/api/memory-rules</code></td><td>创建 Memory Rule</td><td>认证用户</td></tr>
-<tr><td>POST</td><td><code>/api/memory-rules/{id}/approve</code></td><td>审批 Memory Rule</td><td>admin/committer</td></tr>
-<tr><td>DELETE</td><td><code>/api/memory-rules/{id}</code></td><td>删除 Memory Rule</td><td>admin/committer</td></tr>
+<tr><td>GET</td><td><code>/api/users</code></td><td>列出所有用户 (仅 admin)</td></tr>
+<tr><td>POST</td><td><code>/api/users</code></td><td>创建用户 (仅 admin)</td></tr>
+<tr><td>DELETE</td><td><code>/api/users/{user_id}</code></td><td>删除用户 (仅 admin)</td></tr>
 </tbody>
 </table>
 </div>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="核心服务"><a class="header" href="#核心服务">核心服务</a></h1>
-<h2 id="auth-service-servicesauth_servicepy"><a class="header" href="#auth-service-servicesauth_servicepy">Auth Service (<code>services/auth_service.py</code>)</a></h2>
-<p>提供密码哈希和 JWT Token 管理：</p>
-<pre><code class="language-python">def hash_password(password: str) -&gt; str:
-    """bcrypt 哈希"""
-
-def verify_password(plain: str, hashed: str) -&gt; bool:
-    """bcrypt 验证"""
-
-def create_access_token(username: str, role: str) -&gt; str:
-    """签发 JWT (HS256, 7天有效期)"""
-
-def decode_token(token: str) -&gt; dict:
-    """解码并验证 JWT"""
-</code></pre>
-<h2 id="worker-service-servicesworkerpy"><a class="header" href="#worker-service-servicesworkerpy">Worker Service (<code>services/worker.py</code>)</a></h2>
-<p>核心的作业消费与编排循环：</p>
-<pre><code class="language-python">async def worker_loop():
-    """Redis BRPOP 消费者，编排器子进程管理"""
-    while True:
-        job_data = await pop_job_queue(timeout=5)
-        if job_data:
-            # 1. 更新 Job 状态为 running
-            # 2. 调用 run_orchestrator() 启动子进程
-            # 3. 轮询子进程进度
-            # 4. 完成后调用 report_parser 解析漏洞
-            # 5. 更新 Job 状态为 completed
-            # 6. 释放 Slot
-</code></pre>
-<h3 id="关键流程"><a class="header" href="#关键流程">关键流程</a></h3>
-<ol>
-<li>从 Redis <code>job_queue</code> 阻塞弹出作业</li>
-<li>更新 Job 状态 → running</li>
-<li>通过 <code>run_orchestrator()</code> 启动 <code>nga</code> 子进程</li>
-<li>定期轮询 Slot 状态获取进度</li>
-<li>子进程完成后调用 <code>parse_vulnerability_report()</code> 解析报告</li>
-<li>将解析出的漏洞写入 Vulnerability 表</li>
-<li>更新 Job 状态 → completed</li>
-<li>释放 Slot</li>
-</ol>
-<h2 id="scheduler-service-servicesschedulerpy"><a class="header" href="#scheduler-service-servicesschedulerpy">Scheduler Service (<code>services/scheduler.py</code>)</a></h2>
-<p>基于 APScheduler 的定时扫描调度：</p>
-<pre><code class="language-python">def get_scheduler() -&gt; AsyncIOScheduler:
-    """获取或创建调度器实例"""
-
-def add_worker_schedule(worker_id, cron_expr, repo_path):
-    """为 Worker 添加定时扫描任务"""
-
-def remove_worker_schedule(worker_id, job_id):
-    """移除定时扫描任务"""
-</code></pre>
-<p>支持 cron 表达式配置每日定时扫描，调度配置通过 <code>WorkerScheduleConfig</code> 持久化到数据库。</p>
-<h2 id="runner-service-servicesrunnerpy"><a class="header" href="#runner-service-servicesrunnerpy">Runner Service (<code>services/runner.py</code>)</a></h2>
-<p>Orchestrator 子进程管理：</p>
-<pre><code class="language-python">def find_orchestrator_script() -&gt; str:
-    """定位 orchestrator.py 脚本路径"""
-
-def detect_default_model() -&gt; str:
-    """检测默认 LLM 模型"""
-
-async def run_orchestrator(repo_path, job_id, worker_id, slot_id, ...):
-    """启动 orchestrator 子进程并管理其生命周期"""
-</code></pre>
-<h3 id="子进程管理策略"><a class="header" href="#子进程管理策略">子进程管理策略</a></h3>
+<p>所有服务定义于 <code>backend/services/</code>，共 10 个模块。</p>
+<h2 id="auth-service-auth_servicepy"><a class="header" href="#auth-service-auth_servicepy">Auth Service (<code>auth_service.py</code>)</a></h2>
 <ul>
-<li>动态超时：300s - 900s（基于 diff 行数）</li>
-<li>软终止：先发送 SIGTERM</li>
-<li>硬终止：超时后发送 SIGKILL</li>
-<li>日志捕获：stdout/stderr 实时读取</li>
+<li><code>authenticate_user(username, password)</code> — 验证用户凭据，返回 JWT Token</li>
+<li><code>get_current_user(token)</code> — 从 Token 解析当前用户</li>
+<li><code>create_user(username, password, role)</code> — 创建用户 (bcrypt 哈希密码)</li>
 </ul>
-<h2 id="git-sync-service-servicesgit_syncpy"><a class="header" href="#git-sync-service-servicesgit_syncpy">Git Sync Service (<code>services/git_sync.py</code>)</a></h2>
-<pre><code class="language-python">def get_head_commit(repo_path: str) -&gt; str:
-    """获取 HEAD commit hash"""
-
-def get_changes_since(repo_path: str, since_commit: str) -&gt; list:
-    """获取自指定 commit 以来的变更文件列表"""
-
-def get_all_cpp_files(repo_path: str) -&gt; list:
-    """获取所有 C/C++ 文件"""
-
-def get_diff(repo_path: str, since_commit: str) -&gt; str:
-    """获取 diff 内容"""
-</code></pre>
-<h2 id="report-parser-service-servicesreport_parserpy"><a class="header" href="#report-parser-service-servicesreport_parserpy">Report Parser Service (<code>services/report_parser.py</code>)</a></h2>
-<p>解析两种格式的漏洞报告：</p>
-<h3 id="vuln-xxx-格式"><a class="header" href="#vuln-xxx-格式">VULN-XXX 格式</a></h3>
-<pre><code class="language-markdown">## VULN-001: Buffer Overflow in process_packet
-
-**Severity:** Critical
-**File:** src/protocol/packet.c:142
-**Description:** ...
-</code></pre>
-<h3 id="nga-review-格式"><a class="header" href="#nga-review-格式">NGA Review 格式</a></h3>
-<p>由 <code>nga</code> CLI 生成的标准审查报告格式，包含文件路径、行号、严重程度、描述等字段。</p>
-<p>解析后输出结构化漏洞列表，包含：</p>
+<h2 id="worker-service-workerpy"><a class="header" href="#worker-service-workerpy">Worker Service (<code>worker.py</code>)</a></h2>
 <ul>
-<li><code>title</code> — 漏洞标题</li>
-<li><code>description</code> — 详细描述</li>
-<li><code>severity</code> — 严重程度 (critical/high/medium/low/info)</li>
-<li><code>file_path</code> — 文件路径</li>
-<li><code>line_number</code> — 行号</li>
-<li><code>category</code> — 漏洞分类</li>
+<li>Worker CRUD 操作</li>
+<li>心跳更新、状态管理</li>
+<li>Worker 所有权过滤 (owner_id)</li>
+<li>Git 状态快照更新</li>
+<li>定时扫描配置管理</li>
+</ul>
+<h2 id="dispatcher-dispatcherpy"><a class="header" href="#dispatcher-dispatcherpy">Dispatcher (<code>dispatcher.py</code>)</a></h2>
+<p>后端 lifespan 中启动的后台调度循环：</p>
+<pre><code class="language-python">async def dispatcher_loop():
+    while True:
+        job_data = await redis.brpop("scan:job:queue", timeout=5)
+        if job_data:
+            job = get_job_from_db(job_data)
+            worker = _find_available_worker(db)
+            if worker:
+                await _dispatch_to_worker(job, worker)
+            else:
+                # 无可用 Worker，重新入队
+                redis.lpush("scan:job:queue", job_data)
+</code></pre>
+<ul>
+<li><code>_find_available_worker(db)</code> — 查找 status=idle 且 deploy_status=deployed 的 Worker</li>
+<li><code>_dispatch_to_worker(job, worker)</code> — HTTP POST /scan 到 Agent，更新 Job.status=dispatched</li>
+</ul>
+<h2 id="deployer-deployerpy"><a class="header" href="#deployer-deployerpy">Deployer (<code>deployer.py</code>)</a></h2>
+<p>SSH 自动部署服务，10 步流程：</p>
+<ol>
+<li>更新 Worker.deploy_status = “deploying”</li>
+<li>SSH 连接 (优先 ssh_key &gt; ssh_password &gt; 后端 deploy key)</li>
+<li>检查 Python 版本 (要求 3.10+)</li>
+<li>安装依赖 (pip install redis httpx fastapi uvicorn)</li>
+<li>创建目录 (~/.opencode-agent/)</li>
+<li>SFTP 上传文件 (agent.py, orchestrator.py, git_sync.py, config.json)</li>
+<li>终止旧 Agent 进程 (pkill)</li>
+<li>启动新 Agent (nohup python3 agent.py &amp;)</li>
+<li>等待注册确认 (最多 60s，轮询 Worker.last_heartbeat)</li>
+<li>更新 deploy_status = “deployed” / “failed”</li>
+</ol>
+<p>每步通过 <code>_log_step()</code> 追加到 Worker.deploy_logs (JSON 数组)。</p>
+<p>异常处理：<code>DeploymentError</code> 异常会设置 deploy_status=“failed” 和 deploy_error。</p>
+<h2 id="deploy-key-deploy_keypy"><a class="header" href="#deploy-key-deploy_keypy">Deploy Key (<code>deploy_key.py</code>)</a></h2>
+<p>后端启动时自动生成 Ed25519 密钥对：</p>
+<ul>
+<li><code>ensure_deploy_key()</code> — 生成密钥对（如不存在）</li>
+<li><code>get_private_key_path()</code> — 返回 ~/.opencode/keys/id_ed25519</li>
+<li><code>get_public_key()</code> — 返回公钥内容</li>
+</ul>
+<p>前端可通过 <code>GET /api/workers/deploy-key</code> 获取公钥，添加到远程机器的 authorized_keys。</p>
+<h2 id="git-sync-git_syncpy"><a class="header" href="#git-sync-git_syncpy">Git Sync (<code>git_sync.py</code>)</a></h2>
+<p>基于 GitPython 的仓库同步服务：</p>
+<ul>
+<li><code>get_head_commit(repo_path)</code> — 获取当前 HEAD</li>
+<li><code>get_cpp_file_count(repo_path)</code> — 获取 C/C++ 文件数</li>
+<li><code>get_changes_since(repo_path, commit)</code> — 获取增量变更</li>
+<li><code>get_all_cpp_files(repo_path)</code> — 获取所有 C/C++ 文件</li>
+<li><code>get_diff(repo_path, commit)</code> — 获取 diff 内容</li>
+</ul>
+<h2 id="report-parser-report_parserpy"><a class="header" href="#report-parser-report_parserpy">Report Parser (<code>report_parser.py</code>)</a></h2>
+<p>从 Orchestrator 生成的 Markdown 报告中解析漏洞：</p>
+<ul>
+<li><code>parse_vulnerability_report(markdown_content)</code> — 解析单个报告文件</li>
+<li>识别格式：<code>## VULN-XXX: Title</code> + Severity / File / Category / Description / Recommendation</li>
+<li>返回结构化漏洞列表</li>
+</ul>
+<h2 id="runner-runnerpy"><a class="header" href="#runner-runnerpy">Runner (<code>runner.py</code>)</a></h2>
+<p>本地 Worker 运行器（遗留，已被 Dispatcher + Agent 取代）：</p>
+<ul>
+<li>启动 Orchestrator 子进程</li>
+<li>监控进程状态</li>
+<li>收集结果</li>
+</ul>
+<h2 id="scheduler-schedulerpy"><a class="header" href="#scheduler-schedulerpy">Scheduler (<code>scheduler.py</code>)</a></h2>
+<p>APScheduler 定时扫描管理：</p>
+<ul>
+<li>全局 Schedule (SchedulerConfig)</li>
+<li>Worker 级 Schedule (WorkerScheduleConfig)</li>
+<li>Cron 表达式解析与执行</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="配置与基础设施"><a class="header" href="#配置与基础设施">配置与基础设施</a></h1>
@@ -1013,7 +1162,7 @@ def get_diff(repo_path: str, since_commit: str) -&gt; str:
     port: int = 8000
 
     class Config:
-        env_prefix = "APP_"  # 环境变量前缀
+        env_prefix = "APP_"
 </code></pre>
 <div class="table-wrapper">
 <table>
@@ -1036,39 +1185,22 @@ def get_diff(repo_path: str, since_commit: str) -&gt; str:
 <li><strong>规划</strong>: 迁移至 PostgreSQL</li>
 </ul>
 <h2 id="redis-backendredis_clientpy"><a class="header" href="#redis-backendredis_clientpy">Redis (<code>backend/redis_client.py</code>)</a></h2>
-<p>异步 Redis 客户端，使用连接池：</p>
-<pre><code class="language-python">class RedisClient:
-    async def initialize(self):
-        self.pool = await aioredis.create_redis_pool(settings.redis_url)
-
-    async def publish_log(self, channel: str, message: str):
-        await self.pool.publish(channel, json.dumps({
-            "type": "log", "data": message
-        }))
-
-    async def push_job_queue(self, job_data: dict):
-        await self.pool.lpush("job_queue", json.dumps(job_data))
-
-    async def pop_job_queue(self, timeout: int = 5):
-        result = await self.pool.brpop("job_queue", timeout=timeout)
-        return json.loads(result[1]) if result else None
-</code></pre>
-<h3 id="redis-用途"><a class="header" href="#redis-用途">Redis 用途</a></h3>
+<p>异步 Redis 客户端，使用连接池。</p>
+<h3 id="redis-键频道命名"><a class="header" href="#redis-键频道命名">Redis 键/频道命名</a></h3>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>用途</th><th>数据结构</th><th>频道/键</th></tr>
+<tr><th>用途</th><th>数据结构</th><th>键/频道</th></tr>
 </thead>
 <tbody>
-<tr><td>作业队列</td><td>List</td><td><code>job_queue</code> (LPUSH/BRPOP)</td></tr>
-<tr><td>日志推送</td><td>Pub/Sub</td><td><code>worker_{id}_slot_{n}</code></td></tr>
-<tr><td>元数据推送</td><td>Pub/Sub</td><td><code>worker_{id}_slot_{n}_meta</code></td></tr>
+<tr><td>作业队列</td><td>List</td><td><code>scan:job:queue</code> (LPUSH/BRPOP)</td></tr>
+<tr><td>Slot 日志推送</td><td>Pub/Sub</td><td><code>slot:{worker_id}:{slot_id}</code></td></tr>
+<tr><td>Slot 元数据推送</td><td>Pub/Sub</td><td><code>slot:{worker_id}:{slot_id}</code> (同频道，type 区分)</td></tr>
 </tbody>
 </table>
 </div>
 <h2 id="pydantic-schema-backendmodelsschemaspy"><a class="header" href="#pydantic-schema-backendmodelsschemaspy">Pydantic Schema (<code>backend/models/schemas.py</code>)</a></h2>
-<p>定义所有 API 请求/响应模型：</p>
-<h3 id="核心-schema"><a class="header" href="#核心-schema">核心 Schema</a></h3>
+<p>共 27 个 API 请求/响应模型：</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -1077,50 +1209,65 @@ def get_diff(repo_path: str, since_commit: str) -&gt; str:
 <tbody>
 <tr><td><code>JobCreate</code></td><td>创建作业请求</td></tr>
 <tr><td><code>JobResponse</code></td><td>作业响应</td></tr>
+<tr><td><code>JobFinalizePayload</code></td><td>Agent Finalize 请求 (含 results 数组)</td></tr>
+<tr><td><code>JobResumeRequest</code></td><td>恢复作业请求</td></tr>
+<tr><td><code>ScanRequest</code></td><td>Agent /scan 请求</td></tr>
 <tr><td><code>TaskResponse</code></td><td>任务响应</td></tr>
-<tr><td><code>SlotAcquire</code></td><td>占用槽位请求</td></tr>
-<tr><td><code>SlotPush</code></td><td>推送日志请求</td></tr>
-<tr><td><code>SlotStatus</code></td><td>槽位状态</td></tr>
+<tr><td><code>LoginPayload</code></td><td>登录请求</td></tr>
+<tr><td><code>LoginResponse</code></td><td>登录响应 (含 JWT)</td></tr>
+<tr><td><code>MeResponse</code></td><td>当前用户信息</td></tr>
 <tr><td><code>UserCreate</code></td><td>创建用户请求</td></tr>
 <tr><td><code>UserResponse</code></td><td>用户响应</td></tr>
-<tr><td><code>LoginPayload</code></td><td>登录请求</td></tr>
-<tr><td><code>LoginResponse</code></td><td>登录响应（含 JWT）</td></tr>
-<tr><td><code>MeResponse</code></td><td>当前用户信息</td></tr>
-<tr><td><code>WorkerRegisterResponse</code></td><td>Worker 注册响应</td></tr>
+<tr><td><code>WorkerCreate</code></td><td>创建 Worker 请求 (含 SSH 配置)</td></tr>
+<tr><td><code>WorkerUpdate</code></td><td>更新 Worker 请求</td></tr>
+<tr><td><code>WorkerResponse</code></td><td>Worker 响应</td></tr>
+<tr><td><code>WorkerRegister</code></td><td>Agent 注册请求</td></tr>
+<tr><td><code>WorkerHeartbeat</code></td><td>Agent 心跳请求</td></tr>
+<tr><td><code>WorkerDeployRequest</code></td><td>部署 Worker 请求</td></tr>
+<tr><td><code>WorkerGitStatusResponse</code></td><td>Worker Git 状态响应</td></tr>
+<tr><td><code>WorkerScheduleConfigResponse</code></td><td>Worker Schedule 响应</td></tr>
+<tr><td><code>WorkerScheduleConfigUpdate</code></td><td>Worker Schedule 更新请求</td></tr>
+<tr><td><code>SlotAcquirePayload</code></td><td>占用槽位请求</td></tr>
+<tr><td><code>SlotPushPayload</code></td><td>推送日志请求</td></tr>
+<tr><td><code>SlotStatusPayload</code></td><td>槽位状态更新</td></tr>
 <tr><td><code>VulnerabilityResponse</code></td><td>漏洞响应</td></tr>
-<tr><td><code>MemoryRuleCreate</code></td><td>创建 Memory Rule</td></tr>
-<tr><td><code>MemoryRuleResponse</code></td><td>Memory Rule 响应</td></tr>
+<tr><td><code>GitSyncResponse</code></td><td>Git 同步统计响应</td></tr>
+<tr><td><code>SchedulerStatusResponse</code></td><td>调度器状态响应</td></tr>
 </tbody>
 </table>
 </div>
 <h2 id="测试-backendtests"><a class="header" href="#测试-backendtests">测试 (<code>backend/tests/</code>)</a></h2>
-<p>16 个测试文件覆盖核心功能：</p>
+<p>27 个测试文件覆盖核心功能：</p>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>测试文件</th><th>覆盖范围</th></tr>
 </thead>
 <tbody>
-<tr><td><code>test_deps.py</code></td><td>依赖注入</td></tr>
-<tr><td><code>test_orm.py</code></td><td>ORM 模型</td></tr>
-<tr><td><code>test_schemas.py</code></td><td>Pydantic Schema</td></tr>
-<tr><td><code>test_redis.py</code></td><td>Redis 客户端</td></tr>
-<tr><td><code>test_orchestrator_import.py</code></td><td>Orchestrator 导入</td></tr>
-<tr><td><code>test_main.py</code></td><td>主应用</td></tr>
-<tr><td><code>test_slots.py</code></td><td>Slot 管理</td></tr>
-<tr><td><code>test_sse.py</code></td><td>SSE 通道</td></tr>
-<tr><td><code>test_jobs.py</code></td><td>作业管理</td></tr>
-<tr><td><code>test_worker.py</code></td><td>Worker 循环</td></tr>
-<tr><td><code>test_reports.py</code></td><td>报告查看</td></tr>
-<tr><td><code>test_integration.py</code></td><td>集成测试</td></tr>
-<tr><td><code>test_auth_service.py</code></td><td>认证服务</td></tr>
 <tr><td><code>test_auth.py</code></td><td>认证路由</td></tr>
-<tr><td><code>test_users.py</code></td><td>用户管理</td></tr>
-<tr><td><code>test_vulnerabilities.py</code></td><td>漏洞管理</td></tr>
+<tr><td><code>test_auth_service.py</code></td><td>认证服务</td></tr>
+<tr><td><code>test_deployer.py</code></td><td>SSH 部署</td></tr>
+<tr><td><code>test_deps.py</code></td><td>依赖注入</td></tr>
+<tr><td><code>test_git_sync.py</code></td><td>Git 同步</td></tr>
+<tr><td><code>test_integration.py</code></td><td>集成测试</td></tr>
+<tr><td><code>test_jobs.py</code></td><td>作业管理</td></tr>
+<tr><td><code>test_main.py</code></td><td>主应用</td></tr>
 <tr><td><code>test_memory.py</code></td><td>Memory Rule</td></tr>
+<tr><td><code>test_orchestrator_import.py</code></td><td>Orchestrator 导入</td></tr>
+<tr><td><code>test_orm.py</code></td><td>ORM 模型</td></tr>
+<tr><td><code>test_orm_extended.py</code></td><td>ORM 扩展测试</td></tr>
+<tr><td><code>test_redis.py</code></td><td>Redis 客户端</td></tr>
+<tr><td><code>test_report_parser.py</code></td><td>报告解析</td></tr>
+<tr><td><code>test_reports.py</code></td><td>报告路由</td></tr>
 <tr><td><code>test_resume.py</code></td><td>作业恢复</td></tr>
 <tr><td><code>test_scheduler.py</code></td><td>调度器</td></tr>
-<tr><td><code>test_git_sync.py</code></td><td>Git 同步</td></tr>
+<tr><td><code>test_schemas.py</code></td><td>Pydantic Schema</td></tr>
+<tr><td><code>test_slots.py</code></td><td>Slot 管理</td></tr>
+<tr><td><code>test_sse.py</code></td><td>SSE 通道</td></tr>
+<tr><td><code>test_users.py</code></td><td>用户管理</td></tr>
+<tr><td><code>test_vulnerabilities.py</code></td><td>漏洞管理</td></tr>
+<tr><td><code>test_worker.py</code></td><td>Worker 循环</td></tr>
+<tr><td><code>test_worker_jobs.py</code></td><td>Worker 作业</td></tr>
 </tbody>
 </table>
 </div>
@@ -1129,11 +1276,11 @@ def get_diff(repo_path: str, since_commit: str) -&gt; str:
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="前端"><a class="header" href="#前端">前端</a></h1>
-<p>React 前端的详细文档，包括组件概览和 API 集成。</p>
+<p>React 19 前端的详细文档，包括组件概览和 API 集成。</p>
 <p>请从左侧导航选择具体章节：</p>
 <ul>
-<li><a href="#前端概览与组件">概览与组件</a> — 10 个组件的详细说明与截图</li>
-<li><a href="#状态管理与-api-集成">状态管理与 API 集成</a> — Auth Context、API 客户端、SSE 管理</li>
+<li><a href="#前端概览与组件">概览与组件</a> — 12 个组件（含 MyWorkers、AddWorkerModal）的详细说明与截图</li>
+<li><a href="#状态管理与-api-集成">状态管理与 API 集成</a> — Auth Context、API 客户端（7 个分组）、SSE 管理、视图路由</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="前端概览与组件"><a class="header" href="#前端概览与组件">前端概览与组件</a></h1>
@@ -1141,108 +1288,68 @@ def get_diff(repo_path: str, since_commit: str) -&gt; str:
 <ul>
 <li><strong>构建工具</strong>: Vite</li>
 <li><strong>框架</strong>: React 19 + TypeScript</li>
-<li><strong>样式</strong>: Tailwind CSS</li>
+<li><strong>样式</strong>: Tailwind CSS (Dark GitHub 风格主题)</li>
 <li><strong>状态</strong>: React Context + hooks</li>
+<li><strong>ANSI 渲染</strong>: AnsiUp 库，在 NodeDetail 中实时渲染终端输出</li>
 </ul>
 <h2 id="项目结构"><a class="header" href="#项目结构">项目结构</a></h2>
 <pre><code>frontend/src/
-├── main.tsx                    # 入口，渲染 App + AuthProvider
-├── App.tsx                     # 应用壳，视图路由 + SSE 管理
+├── main.tsx              # 入口，渲染 App + AuthProvider
+├── App.tsx               # 应用壳，视图路由 + SSE 管理
+├── constants.ts          # 共享常量
 ├── context/
-│   └── AuthContext.tsx         # 认证上下文，Token 管理
+│   └── AuthContext.tsx    # 认证上下文，Token 管理
 ├── hooks/
-│   └── useApi.ts              # API 客户端，所有后端调用
+│   └── useApi.ts         # API 客户端，所有后端调用
 └── components/
-    ├── LoginPage.tsx           # 登录页
-    ├── DashboardMain.tsx       # 管理员全局仪表盘
-    ├── PersonalDashboard.tsx   # 用户个人视图
-    ├── ScanJobsQueue.tsx       # 扫描作业队列
+    ├── LoginPage.tsx          # 登录页
+    ├── DashboardMain.tsx      # 管理员全局仪表盘
+    ├── PersonalDashboard.tsx  # 用户个人视图
+    ├── MyWorkers.tsx          # 我的 Worker 管理
+    ├── AddWorkerModal.tsx     # 添加 Worker 弹窗 (SSH 配置)
+    ├── ScanJobsQueue.tsx      # 扫描作业队列
     ├── VulnerabilityCenter.tsx # 漏洞中心
-    ├── ReportViewer.tsx        # 报告查看器
-    ├── WorkerFleet.tsx         # Worker 集群
-    ├── NodeDetail.tsx          # 节点详情 + 终端日志
-    ├── MemoryManager.tsx       # Memory Rule 管理
-    └── UserManager.tsx         # 用户管理
+    ├── ReportViewer.tsx       # 报告查看器 (失败文件高亮)
+    ├── WorkerFleet.tsx        # Worker 集群
+    ├── NodeDetail.tsx         # 节点详情 + 终端日志
+    ├── MemoryManager.tsx      # Memory Rule 管理
+    └── UserManager.tsx        # 用户管理
 </code></pre>
-<h2 id="页面截图与说明"><a class="header" href="#页面截图与说明">页面截图与说明</a></h2>
-<h3 id="登录页面-loginpage"><a class="header" href="#登录页面-loginpage">登录页面 (LoginPage)</a></h3>
+<h2 id="组件说明"><a class="header" href="#组件说明">组件说明</a></h2>
+<h3 id="loginpage"><a class="header" href="#loginpage">LoginPage</a></h3>
+<p>用户名/密码表单，JWT 认证。默认凭据: admin / admin123。</p>
 <p><img src="images/login-page.png" alt="登录页面"></p>
-<p><img src="images/login.gif" alt="登录操作动图"></p>
-<ul>
-<li>用户名/密码表单</li>
-<li>JWT 认证</li>
-<li>默认凭据提示: admin / admin123</li>
-</ul>
-<h3 id="全局仪表盘-dashboardmain"><a class="header" href="#全局仪表盘-dashboardmain">全局仪表盘 (DashboardMain)</a></h3>
+<h3 id="dashboardmain"><a class="header" href="#dashboardmain">DashboardMain</a></h3>
+<p>管理员全局视图：Fleet Utilization、Trigger Global MR Scan、统计卡片、Registered Worker Fleet。</p>
 <p><img src="images/dashboard-main.png" alt="全局仪表盘"></p>
-<p><img src="images/dashboard.gif" alt="仪表盘操作动图"></p>
-<p>管理员专属的全局视图，包含：</p>
-<ul>
-<li><strong>Fleet Utilization</strong> — 集群利用率指标</li>
-<li><strong>Trigger Global MR Scan</strong> — 触发全量扫描按钮</li>
-<li><strong>统计卡片</strong> — Total Files Scanned / Local SAST Findings / LLM Semantic Findings / Saved LLM Inference Cost</li>
-<li><strong>Registered Worker Fleet</strong> — 已注册 Worker 节点卡片</li>
-<li><strong>Personal View / Fleet View</strong> 切换</li>
-<li>点击 Worker 卡片可进入 Node Detail 查看实时日志</li>
-</ul>
-<h3 id="worker-集群-workerfleet"><a class="header" href="#worker-集群-workerfleet">Worker 集群 (WorkerFleet)</a></h3>
+<h3 id="myworkers"><a class="header" href="#myworkers">MyWorkers</a></h3>
+<p>Worker 管理页面：Add Worker (弹出 AddWorkerModal)、Deploy (一键 SSH 部署)、Delete、Edit。</p>
+<h3 id="addworkermodal"><a class="header" href="#addworkermodal">AddWorkerModal</a></h3>
+<p>创建新 Worker 表单：Worker ID、SSH Host/Port/Username、SSH Key/Password、Repo Path、Scan Mode、Cared Paths。</p>
+<h3 id="workerfleet"><a class="header" href="#workerfleet">WorkerFleet</a></h3>
+<p>所有注册 Worker 节点卡片：ID/状态、IP/主机名、并发槽位、负载百分比。</p>
 <p><img src="images/worker-fleet.png" alt="Worker 集群"></p>
-<p><img src="images/worker-fleet.gif" alt="Worker 集群操作动图"></p>
-<p>展示所有注册的 Worker 节点，每个节点卡片显示：</p>
-<ul>
-<li>Worker ID / 状态 (idle/busy)</li>
-<li>IP 地址 / 主机名</li>
-<li>Agent 并发槽位数</li>
-<li>进程负载百分比</li>
-</ul>
-<h3 id="扫描作业队列-scanjobsqueue"><a class="header" href="#扫描作业队列-scanjobsqueue">扫描作业队列 (ScanJobsQueue)</a></h3>
+<h3 id="scanjobsqueue"><a class="header" href="#scanjobsqueue">ScanJobsQueue</a></h3>
+<p>作业管理界面：作业列表、状态标签 (pending/queued/running/completed/failed/cancelled/interrupted/dispatched)、Cancel/Resume 操作。</p>
 <p><img src="images/scan-jobs-queue.png" alt="扫描作业队列"></p>
-<p><img src="images/scan-jobs-queue.gif" alt="扫描作业队列操作动图"></p>
-<p>作业管理界面：</p>
-<ul>
-<li>作业列表（支持过滤/搜索）</li>
-<li>作业状态标签 (pending/running/completed/failed/cancelled)</li>
-<li>Cancel / Resume 操作按钮</li>
-</ul>
-<h3 id="漏洞中心-vulnerabilitycenter"><a class="header" href="#漏洞中心-vulnerabilitycenter">漏洞中心 (VulnerabilityCenter)</a></h3>
+<h3 id="vulnerabilitycenter"><a class="header" href="#vulnerabilitycenter">VulnerabilityCenter</a></h3>
+<p>漏洞生命周期管理：严重程度/状态/类型筛选、Accept/Reject/Assign 操作。</p>
 <p><img src="images/vulnerability-center.png" alt="漏洞中心"></p>
-<p><img src="images/vulnerability-center.gif" alt="漏洞中心操作动图"></p>
-<p>漏洞生命周期管理：</p>
-<ul>
-<li>严重程度/状态/类型 筛选器</li>
-<li>Accept / Reject / Assign 操作</li>
-<li>漏洞详情展示</li>
-</ul>
-<h3 id="memory-rule-管理-memorymanager"><a class="header" href="#memory-rule-管理-memorymanager">Memory Rule 管理 (MemoryManager)</a></h3>
+<h3 id="reportviewer"><a class="header" href="#reportviewer">ReportViewer</a></h3>
+<p>报告查看：文件列表、失败文件红色高亮、警告横幅、Markdown 内容展示。</p>
+<h3 id="memorymanager"><a class="header" href="#memorymanager">MemoryManager</a></h3>
+<p>知识库管理：Global/Personal 选项卡、正向/负向规则、审批工作流、提交个人规则为全局。</p>
 <p><img src="images/memory-manager.png" alt="Memory Manager"></p>
-<p><img src="images/memory-manager.gif" alt="Memory Manager 操作动图"></p>
-<p>知识库管理：</p>
-<ul>
-<li><strong>Global</strong> / <strong>Personal</strong> 选项卡</li>
-<li>正向（聚焦） / 负向（忽略）规则</li>
-<li>审批工作流 (pending → approved/rejected)</li>
-</ul>
-<h3 id="用户管理-usermanager"><a class="header" href="#用户管理-usermanager">用户管理 (UserManager)</a></h3>
+<h3 id="usermanager"><a class="header" href="#usermanager">UserManager</a></h3>
+<p>Admin 专属：用户列表、创建/删除用户、角色分配。</p>
 <p><img src="images/user-management.png" alt="用户管理"></p>
-<p><img src="images/user-management.gif" alt="用户管理操作动图"></p>
-<p>Admin 专属功能：</p>
-<ul>
-<li>用户列表</li>
-<li>创建/删除用户</li>
-<li>角色分配 (admin/committer/user)</li>
-</ul>
-<h3 id="节点详情-nodedetail"><a class="header" href="#节点详情-nodedetail">节点详情 (NodeDetail)</a></h3>
+<h3 id="nodedetail"><a class="header" href="#nodedetail">NodeDetail</a></h3>
+<p>Worker 节点终端视图：每个槽位实时日志流 (ANSI 渲染)、Slot 状态指示。</p>
 <p><img src="images/node-detail.png" alt="节点详情"></p>
-<p>Worker 节点的终端视图：</p>
-<ul>
-<li>每个槽位的实时日志流（ANSI 渲染）</li>
-<li>Slot 状态指示</li>
-<li>实时 SSE 连接</li>
-</ul>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="状态管理与-api-集成"><a class="header" href="#状态管理与-api-集成">状态管理与 API 集成</a></h1>
 <h2 id="auth-context-contextauthcontexttsx"><a class="header" href="#auth-context-contextauthcontexttsx">Auth Context (<code>context/AuthContext.tsx</code>)</a></h2>
-<p>应用级别的认证状态管理：</p>
+<p>应用级认证状态管理：</p>
 <pre><code class="language-tsx">interface AuthContextType {
   user: MeResponse | null;
   token: string | null;
@@ -1251,104 +1358,232 @@ def get_diff(repo_path: str, since_commit: str) -&gt; str:
   isAuthenticated: boolean;
 }
 </code></pre>
-<h3 id="关键行为"><a class="header" href="#关键行为">关键行为</a></h3>
 <ul>
-<li>登录成功后将 JWT Token 存储到 <code>localStorage</code></li>
-<li>每次应用加载时从 <code>localStorage</code> 恢复 Token</li>
-<li>调用 <code>GET /api/auth/me</code> 验证 Token 有效性</li>
+<li>登录成功后将 JWT Token 存储到 localStorage</li>
+<li>每次应用加载从 localStorage 恢复 Token</li>
+<li>调用 GET /api/auth/me 验证 Token 有效性</li>
 <li>未认证时自动重定向至 LoginPage</li>
-<li>登出时清除 <code>localStorage</code> 中的 Token</li>
+<li>登出时清除 localStorage 中的 Token</li>
 </ul>
 <h2 id="api-客户端-hooksuseapits"><a class="header" href="#api-客户端-hooksuseapits">API 客户端 (<code>hooks/useApi.ts</code>)</a></h2>
 <p>统一的后端 API 调用封装，所有请求自动携带 JWT Bearer Token：</p>
-<h3 id="api-分组"><a class="header" href="#api-分组">API 分组</a></h3>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>分组</th><th>方法</th><th>说明</th></tr>
 </thead>
 <tbody>
-<tr><td><strong>Jobs</strong></td><td><code>fetchJobs()</code>, <code>createJob()</code>, <code>cancelJob()</code>, <code>resumeJob()</code>, <code>gitSyncJob()</code></td><td>扫描作业管理</td></tr>
-<tr><td><strong>Workers</strong></td><td><code>fetchWorkers()</code>, <code>registerWorker()</code>, <code>heartbeat()</code>, <code>getGitStatus()</code></td><td>Worker 管理</td></tr>
-<tr><td><strong>Reports</strong></td><td><code>fetchReportList()</code>, <code>fetchReportContent()</code></td><td>报告查看</td></tr>
-<tr><td><strong>Vulnerabilities</strong></td><td><code>fetchVulnerabilities()</code>, <code>acceptVulnerability()</code>, <code>rejectVulnerability()</code>, <code>assignVulnerability()</code></td><td>漏洞管理</td></tr>
-<tr><td><strong>Memory</strong></td><td><code>fetchMemoryRules()</code>, <code>createMemoryRule()</code>, <code>approveMemoryRule()</code>, <code>deleteMemoryRule()</code></td><td>Memory Rule</td></tr>
-<tr><td><strong>Users</strong></td><td><code>fetchUsers()</code>, <code>createUser()</code>, <code>deleteUser()</code></td><td>用户管理</td></tr>
-<tr><td><strong>Scheduler</strong></td><td><code>getSchedule()</code>, <code>updateSchedule()</code></td><td>调度配置</td></tr>
+<tr><td><strong>Jobs</strong></td><td>fetchJobs, createJob, cancelJob, resumeJob, finalizeJob</td><td>扫描作业管理</td></tr>
+<tr><td><strong>Workers</strong></td><td>fetchWorkers, createWorker, deployWorker, deleteWorker, updateWorker, getDeployKey, getDeployLogs, updateShowThinking</td><td>Worker 管理</td></tr>
+<tr><td><strong>Reports</strong></td><td>fetchReportList, fetchReportContent</td><td>报告查看</td></tr>
+<tr><td><strong>Vulnerabilities</strong></td><td>fetchVulnerabilities, acceptVulnerability, rejectVulnerability, assignVulnerability</td><td>漏洞管理</td></tr>
+<tr><td><strong>Memory</strong></td><td>fetchMemoryRules, createMemoryRule, approveMemoryRule, submitGlobal, deleteMemoryRule</td><td>Memory Rule</td></tr>
+<tr><td><strong>Users</strong></td><td>fetchUsers, createUser, deleteUser</td><td>用户管理</td></tr>
+<tr><td><strong>Scheduler</strong></td><td>getSchedule, updateSchedule, getSchedulerStatus</td><td>调度配置</td></tr>
 </tbody>
 </table>
 </div>
-<h3 id="请求示例"><a class="header" href="#请求示例">请求示例</a></h3>
-<pre><code class="language-typescript">const createJob = async (repoPath: string, workerId: string) =&gt; {
-  const res = await fetch('/api/jobs', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify({ repo_path: repoPath, worker_id: workerId }),
-  });
-  return res.json();
-};
-</code></pre>
 <h2 id="sse-连接管理"><a class="header" href="#sse-连接管理">SSE 连接管理</a></h2>
-<p>App.tsx 中管理 SSE (EventSource) 连接：</p>
-<pre><code class="language-tsx">// 为每个活跃的 Worker Slot 建立 EventSource
-useEffect(() =&gt; {
-  workers.forEach(worker =&gt; {
-    worker.slots.forEach(slot =&gt; {
-      if (slot.status === 'busy') {
-        const es = new EventSource(
-          `/api/sse/worker/${worker.id}/${slot.id}?token=${token}`
-        );
-        es.onmessage = (event) =&gt; {
-          // 更新 slot 日志状态
-        };
-      }
-    });
-  });
-}, [workers]);
+<p>App.tsx 中管理 SSE (EventSource) 连接，为每个活跃的 Worker Slot 建立 EventSource：</p>
+<pre><code class="language-tsx">const es = new EventSource(
+  `/api/sse/worker/${worker.id}/${slot.id}?token=${token}`
+);
+es.onmessage = (event) =&gt; { /* 更新 slot 日志状态 */ };
 </code></pre>
 <h2 id="视图路由"><a class="header" href="#视图路由">视图路由</a></h2>
-<p>App.tsx 使用简单的状态路由（非 React Router），通过 <code>currentView</code> 状态切换组件：</p>
-<pre><code class="language-tsx">const renderView = () =&gt; {
-  switch (currentView) {
-    case 'dashboard': return &lt;DashboardMain /&gt;;
-    case 'worker-fleet': return &lt;WorkerFleet /&gt;;
-    case 'scan-jobs': return &lt;ScanJobsQueue /&gt;;
-    case 'vulnerability-center': return &lt;VulnerabilityCenter /&gt;;
-    case 'memory-manager': return &lt;MemoryManager /&gt;;
-    case 'user-management': return &lt;UserManager /&gt;;
-    case 'node-detail': return &lt;NodeDetail /&gt;;
-    case 'report-viewer': return &lt;ReportViewer /&gt;;
-    default: return &lt;DashboardMain /&gt;;
-  }
-};
-</code></pre>
+<p>App.tsx 使用简单状态路由（非 React Router），通过 currentView 切换组件：DashboardMain、PersonalDashboard、WorkerFleet、MyWorkers、ScanJobsQueue、VulnerabilityCenter、MemoryManager、UserManager、NodeDetail、ReportViewer。</p>
 <h2 id="侧边栏导航"><a class="header" href="#侧边栏导航">侧边栏导航</a></h2>
 <p>根据用户角色动态显示：</p>
 <ul>
-<li><strong>admin</strong>: 所有导航项可见</li>
-<li><strong>committer</strong>: 隐藏 User Management</li>
-<li><strong>user</strong>: 仅 Dashboard + Vulnerability Center + Memory Manager</li>
+<li><strong>admin</strong>: 所有导航项 (含 User Management、My Workers)</li>
+<li><strong>committer</strong>: 隐藏 User Management，可见 My Workers</li>
+<li><strong>user</strong>: Dashboard + Vulnerability Center + Memory Manager + My Workers</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="worker-引擎"><a class="header" href="#worker-引擎">Worker 引擎</a></h1>
-<p>Worker 扫描引擎的详细文档，包括 Orchestrator 编排器、独立 Worker 节点和技能知识库。</p>
+<p>Worker 扫描引擎的详细文档，包括 Remote Agent、SSH 部署、Orchestrator 编排器、独立 Worker 节点和技能知识库。</p>
 <p>请从左侧导航选择具体章节：</p>
 <ul>
-<li><a href="#orchestrator-编排器">Orchestrator 编排器</a> — CLI 接口、并发控制、子进程管理、报告生成</li>
-<li><a href="#worker-node-独立节点">Worker Node 独立节点</a> — 注册、心跳、作业消费、Git 同步</li>
-<li><a href="#技能与知识库">技能与知识库</a> — 扫描规则、领域知识、Memory Rule 反馈闭环</li>
+<li><a href="#remote-agent-常驻代理">Remote Agent 常驻代理</a> — FastAPI 服务 (port 8765)、/scan、心跳、报告上报</li>
+<li><a href="#ssh-部署服务">SSH 部署服务</a> — 10 步自动部署流程、Deploy Key 管理、部署日志</li>
+<li><a href="#orchestrator-编排器">Orchestrator 编排器</a> — CLI 接口、并发控制、动态超时、断点续扫、报告生成</li>
+<li><a href="#worker-node-独立节点">Worker Node 独立节点</a> — 注册、心跳、Redis BRPOP 作业消费、Git 同步</li>
+<li><a href="#技能与知识库">技能与知识库</a> — 10 条扫描规则、领域知识、Memory Rule 反馈闭环</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
+<h1 id="remote-agent-常驻代理"><a class="header" href="#remote-agent-常驻代理">Remote Agent 常驻代理</a></h1>
+<p><strong><code>worker/agent.py</code></strong> — 部署在远程扫描机器上的常驻 FastAPI 服务</p>
+<h2 id="概述"><a class="header" href="#概述">概述</a></h2>
+<p>Remote Agent 是轻量级常驻服务，部署在远程 Worker 机器上，通过 HTTP 接收后端 Dispatcher 的扫描指令，启动 Orchestrator 子进程执行扫描，完成后通过 /finalize 端点上报结果。</p>
+<p>与 Standalone Worker Node 不同，Agent 不直接消费 Redis 队列，而是被动等待后端 HTTP 调用。</p>
+<h2 id="架构"><a class="header" href="#架构">架构</a></h2>
+<pre><code>┌─────────────────────────────────────────────┐
+│ Remote Machine                               │
+│                                              │
+│  ┌────────────────────────────────────────┐  │
+│  │ Agent (FastAPI, port 8765)             │  │
+│  │  ├─ POST /scan   ← Dispatcher 调用    │  │
+│  │  ├─ GET  /health                      │  │
+│  │  └─ Heartbeat loop (30s) ──► Backend  │  │
+│  └────────────┬───────────────────────────┘  │
+│               │                              │
+│  ┌────────────▼───────────────────────────┐  │
+│  │ Orchestrator subprocess                │  │
+│  │  ├─ python3 orchestrator.py --repo ... │  │
+│  │  ├─ 3 concurrent slots (Semaphore)     │  │
+│  │  └─ nga CLI per file                   │  │
+│  └────────────────────────────────────────┘  │
+│                                              │
+│  ~/.opencode-agent/                          │
+│  ├─ agent.py                                │
+│  ├─ orchestrator.py                          │
+│  ├─ worker/git_sync.py                       │
+│  ├─ config.json                              │
+│  └─ logs/                                    │
+└─────────────────────────────────────────────┘
+</code></pre>
+<h2 id="启动流程"><a class="header" href="#启动流程">启动流程</a></h2>
+<ol>
+<li>加载 <code>~/.opencode-agent/config.json</code> (必须包含 worker_id, backend_url, redis_url)</li>
+<li><code>on_startup</code> 事件：注册到后端 + 立即发送心跳 + 启动心跳循环</li>
+<li>监听端口 8765</li>
+</ol>
+<h2 id="核心端点"><a class="header" href="#核心端点">核心端点</a></h2>
+<h3 id="post-scan"><a class="header" href="#post-scan">POST /scan</a></h3>
+<p>接收扫描指令并启动 Orchestrator 子进程：</p>
+<pre><code class="language-json">{
+  "job_id": "uuid",
+  "repo_path": "/path/to/repo",
+  "mode": "full|diff|files",
+  "report_dir": "/tmp/opencode-reports/{job_id}",
+  "file_paths": ["file1.c", "file2.cpp"],
+  "target_commit": "abc123"
+}
+</code></pre>
+<p>根据 mode 构建不同的 orchestrator 命令：</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>mode</th><th>命令</th></tr>
+</thead>
+<tbody>
+<tr><td>full</td><td><code>--full</code></td></tr>
+<tr><td>diff</td><td><code>--diff &lt;target_commit&gt;</code></td></tr>
+<tr><td>files</td><td><code>--files &lt;path1&gt; &lt;path2&gt; ...</code></td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="get-health"><a class="header" href="#get-health">GET /health</a></h3>
+<pre><code class="language-json">{"ok": true, "worker_id": "remote-01", "scanning": true}
+</code></pre>
+<h2 id="心跳循环"><a class="header" href="#心跳循环">心跳循环</a></h2>
+<p>每 30 秒发送心跳，携带本地 Git 统计信息：</p>
+<pre><code class="language-python">async def _heartbeat_loop():
+    while True:
+        await asyncio.sleep(30)
+        status = "running" if _is_orchestrator_running() else "idle"
+        git_stats = get_node_git_stats(REPO_PATH)
+        payload = {
+            "status": status,
+            "current_job_id": _current_job_id,
+            "head_commit": git_stats["head_commit"],
+            "added_files": git_stats["added_files"],
+            "modified_files": git_stats["modified_files"],
+            "deleted_files": git_stats["deleted_files"],
+            "changed_lines": git_stats["changed_lines"],
+            "total_cpp_files": git_stats["total_cpp_files"],
+        }
+        # POST to /api/workers/{WORKER_ID}/heartbeat
+</code></pre>
+<h2 id="扫描监控"><a class="header" href="#扫描监控">扫描监控</a></h2>
+<p><code>_monitor_scan()</code> 异步任务：</p>
+<ol>
+<li>轮询 proc.poll() 直到子进程结束</li>
+<li>遍历 report_dir/*.md，收集报告内容和日志</li>
+<li>调用 parse_vulnerability_report() 解析漏洞</li>
+<li>POST /api/jobs/{job_id}/finalize 批量提交结果</li>
+</ol>
+<h2 id="配置文件"><a class="header" href="#配置文件">配置文件</a></h2>
+<p><code>~/.opencode-agent/config.json</code>：</p>
+<pre><code class="language-json">{
+  "worker_id": "remote-01",
+  "backend_url": "http://192.168.1.1:3000",
+  "redis_url": "redis://192.168.1.1:6379/0",
+  "repo_path": "/path/to/repo"
+}
+</code></pre>
+<p>启动时验证 worker_id、backend_url、redis_url 三个必填项。</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="ssh-部署服务"><a class="header" href="#ssh-部署服务">SSH 部署服务</a></h1>
+<p><strong><code>backend/services/deployer.py</code></strong> — 后端自动部署 Agent 到远程机器</p>
+<h2 id="概述-1"><a class="header" href="#概述-1">概述</a></h2>
+<p>Deployer 使用 asyncssh 库通过 SSH 连接到远程 Worker 机器，自动完成环境检查、依赖安装、文件上传、进程启动和注册确认。</p>
+<h2 id="触发方式"><a class="header" href="#触发方式">触发方式</a></h2>
+<pre><code class="language-bash">POST /api/workers/{worker_id}/deploy
+</code></pre>
+<p>部署作为 FastAPI BackgroundTasks 执行，API 立即返回。</p>
+<h2 id="部署流程-10-步"><a class="header" href="#部署流程-10-步">部署流程 (10 步)</a></h2>
+<ol>
+<li>更新 Worker.deploy_status = “deploying”</li>
+<li>asyncssh.connect() — 优先 ssh_key &gt; ssh_password &gt; 后端 deploy key</li>
+<li>检查 Python 版本 — 要求 3.10+</li>
+<li>安装依赖 — pip install redis httpx fastapi uvicorn</li>
+<li>创建目录 — mkdir -p ~/.opencode-agent/logs ~/.opencode-agent/worker</li>
+<li>SFTP 上传 — agent.py, orchestrator.py, git_sync.py, config.json</li>
+<li>终止旧进程 — pkill -f ‘python3 agent.py’; sleep 2</li>
+<li>启动 Agent — nohup python3 agent.py &gt; logs/agent.log 2&gt;&amp;1 &amp;</li>
+<li>等待注册确认 (最多 60s，轮询 Worker.last_heartbeat)</li>
+<li>更新 deploy_status = “deployed” / “failed”</li>
+</ol>
+<h2 id="ssh-认证方式"><a class="header" href="#ssh-认证方式">SSH 认证方式</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>优先级</th><th>字段</th><th>说明</th></tr>
+</thead>
+<tbody>
+<tr><td>1</td><td>ssh_key</td><td>用户提供的 SSH 私钥</td></tr>
+<tr><td>2</td><td>ssh_password</td><td>SSH 密码认证</td></tr>
+<tr><td>3</td><td>后端 deploy key</td><td>~/.opencode/keys/id_ed25519 (自动生成)</td></tr>
+</tbody>
+</table>
+</div>
+<p>known_hosts 检查已禁用 (known_hosts=None)，适用于内网动态部署环境。</p>
+<h2 id="deploy-key-管理-servicesdeploy_keypy"><a class="header" href="#deploy-key-管理-servicesdeploy_keypy">Deploy Key 管理 (<code>services/deploy_key.py</code>)</a></h2>
+<p>后端启动时自动生成 Ed25519 密钥对：</p>
+<ul>
+<li><strong>私钥</strong>: ~/.opencode/keys/id_ed25519</li>
+<li><strong>公钥</strong>: ~/.opencode/keys/id_ed25519.pub</li>
+</ul>
+<pre><code class="language-bash">GET /api/workers/deploy-key
+→ {"public_key": "ssh-ed25519 AAAA... opencode-deploy"}
+</code></pre>
+<h2 id="部署日志"><a class="header" href="#部署日志">部署日志</a></h2>
+<p>每个步骤通过 _log_step() 追加到 Worker.deploy_logs (JSON 数组)：</p>
+<pre><code class="language-json">[
+  {"ts": "2026-05-27T12:00:00Z", "step": "start", "msg": "Deployment started for remote-01"},
+  {"ts": "2026-05-27T12:00:01Z", "step": "connect", "msg": "Connecting to 192.168.1.100:22"},
+  {"ts": "2026-05-27T12:00:02Z", "step": "connected", "msg": "SSH connection established"},
+  {"ts": "2026-05-27T12:00:15Z", "step": "done", "msg": "Deployment completed successfully"}
+]
+</code></pre>
+<p>前端 MyWorkers 页面可通过 GET /api/workers/{id}/deploy-logs 查看部署进度。</p>
+<h2 id="错误处理"><a class="header" href="#错误处理">错误处理</a></h2>
+<ul>
+<li>Python 版本不满足 → DeploymentError</li>
+<li>依赖安装失败 → DeploymentError</li>
+<li>Agent 未在 60s 内注册 → DeploymentError</li>
+<li>SSH 连接失败 → 记录到 Worker.deploy_error</li>
+</ul>
+<p>失败时 Worker.deploy_status = “failed”，deploy_error 包含错误描述。</p>
+<div style="break-before: page; page-break-before: always;"></div>
 <h1 id="orchestrator-编排器"><a class="header" href="#orchestrator-编排器">Orchestrator 编排器</a></h1>
-<p><strong><code>worker/orchestrator.py</code></strong> — 核心扫描编排器（~1300 行）</p>
+<p><strong><code>worker/orchestrator.py</code></strong> — 核心扫描编排器</p>
 <h2 id="cli-接口"><a class="header" href="#cli-接口">CLI 接口</a></h2>
 <pre><code class="language-bash">python3 worker/orchestrator.py \
   --repo /path/to/repo \
   --files file1.cpp file2.c \
-  --diff "diff_content" \
+  --diff "target_commit" \
   --full \
   --debug \
   --web-port 8080 \
@@ -1362,11 +1597,11 @@ useEffect(() =&gt; {
 <tbody>
 <tr><td><code>--repo</code></td><td>目标仓库路径</td></tr>
 <tr><td><code>--files</code></td><td>指定扫描文件列表</td></tr>
-<tr><td><code>--diff</code></td><td>增量 diff 内容</td></tr>
+<tr><td><code>--diff</code></td><td>增量扫描目标 commit</td></tr>
 <tr><td><code>--full</code></td><td>全量扫描模式</td></tr>
 <tr><td><code>--debug</code></td><td>调试模式</td></tr>
 <tr><td><code>--web-port</code></td><td>Web 监控端口</td></tr>
-<tr><td><code>-c</code></td><td>并发数（默认 3）</td></tr>
+<tr><td><code>-c</code></td><td>并发数 (默认 3)</td></tr>
 </tbody>
 </table>
 </div>
@@ -1377,7 +1612,6 @@ useEffect(() =&gt; {
         self.results = []
 
     async def scan_file(self, filepath: str) -&gt; ScanResult:
-        """扫描单个文件"""
         async with self.semaphore:
             # 1. 构造扫描 prompt
             # 2. 执行: nga run '&lt;prompt&gt;'
@@ -1386,57 +1620,42 @@ useEffect(() =&gt; {
             # 5. 返回 ScanResult
 
     async def run(self, files: list[str]):
-        """并发扫描所有文件"""
         tasks = [self.scan_file(f) for f in files]
         await asyncio.gather(*tasks)
         # 生成 summary.md
 </code></pre>
 <h2 id="子进程管理"><a class="header" href="#子进程管理">子进程管理</a></h2>
-<h3 id="超时策略"><a class="header" href="#超时策略">超时策略</a></h3>
-<p>动态超时根据 diff 行数计算：</p>
+<h3 id="动态超时"><a class="header" href="#动态超时">动态超时</a></h3>
 <pre><code class="language-python">def calculate_timeout(diff_lines: int) -&gt; int:
-    base = 300  # 5 分钟基础超时
-    extra = min(diff_lines * 2, 600)  # 每行增加 2s，最多 10 分钟
-    return base + extra  # 范围: 300s - 900s
+    base = 300                          # 5 分钟基础
+    extra = min(diff_lines // 10 * 60, 600)  # 每 10 行增加 60s，最多 10 分钟
+    return base + extra                 # 范围: 300s - 900s
 </code></pre>
 <h3 id="终止策略"><a class="header" href="#终止策略">终止策略</a></h3>
-<pre><code>1. 发送 SIGTERM (软终止)
-2. 等待 10 秒
-3. 如果进程仍在运行，发送 SIGKILL (硬终止)
-</code></pre>
+<ol>
+<li>发送 SIGTERM (软终止)</li>
+<li>等待 10 秒</li>
+<li>如果进程仍在运行，发送 SIGKILL (硬终止)</li>
+</ol>
 <h3 id="并发控制"><a class="header" href="#并发控制">并发控制</a></h3>
-<p>使用 <code>asyncio.Semaphore</code> 限制并发数（默认 3）：</p>
-<pre><code class="language-python">self.semaphore = asyncio.Semaphore(concurrency)
-
-async def scan_file(self, filepath):
-    async with self.semaphore:
-        # 同一时刻最多 3 个 nga 子进程
-        ...
-</code></pre>
+<p>使用 asyncio.Semaphore 限制并发数 (默认 3)。</p>
 <h2 id="报告生成"><a class="header" href="#报告生成">报告生成</a></h2>
-<h3 id="单文件报告"><a class="header" href="#单文件报告">单文件报告</a></h3>
 <p>每个文件生成独立的 Markdown 报告：</p>
-<pre><code>reports/{timestamp}/
+<pre><code>reports/{job_id}/
 ├── file1.cpp.md       # 单文件审计报告
-├── file2.c.md         # 单文件审计报告
+├── file2.c.md
 ├── protocol/
-│   └── packet.c.md    # 子目录文件
+│   └── packet.c.md
 └── summary.md         # 汇总报告
 </code></pre>
-<h3 id="报告格式"><a class="header" href="#报告格式">报告格式</a></h3>
-<pre><code class="language-markdown">## VULN-001: Buffer Overflow in process_packet
-
-**Severity:** Critical
-**File:** src/protocol/packet.c:142
-**Category:** Memory Safety
-
-### Description
-The function `process_packet()` at line 142 performs an unchecked
-memcpy into a fixed-size buffer...
-
-### Recommendation
-Replace memcpy with memcpy_s or add bounds checking...
+<h2 id="断点续扫"><a class="header" href="#断点续扫">断点续扫</a></h2>
+<p>将已扫描文件列表保存为 checkpoint JSON：</p>
+<pre><code class="language-json">{
+  "completed": ["src/file1.c", "src/file2.cpp"],
+  "failed": ["src/buggy.c"]
+}
 </code></pre>
+<p>中断后可从 checkpoint 恢复，跳过已完成文件继续扫描。</p>
 <h2 id="工厂函数"><a class="header" href="#工厂函数">工厂函数</a></h2>
 <pre><code class="language-python">def create_orchestrator(repo_path: str, **kwargs) -&gt; OpenCodeOrchestrator:
     """程序化创建 Orchestrator 实例，供 Worker Service 调用"""
@@ -1445,78 +1664,29 @@ Replace memcpy with memcpy_s or add bounds checking...
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="worker-node-独立节点"><a class="header" href="#worker-node-独立节点">Worker Node 独立节点</a></h1>
 <p><strong><code>worker_node.py</code></strong> — 独立 Worker 节点启动脚本</p>
-<h2 id="概述"><a class="header" href="#概述">概述</a></h2>
-<p>独立 Worker 节点可以在远程机器上运行，通过网络连接到 Gateway API 和 Redis，构成分布式扫描集群。</p>
+<h2 id="概述-2"><a class="header" href="#概述-2">概述</a></h2>
+<p>独立 Worker 节点在远程机器上运行，通过网络连接到 Gateway API 和 Redis，直接通过 Redis BRPOP 消费作业，无需后端 Dispatcher 中转。</p>
 <h2 id="核心流程"><a class="header" href="#核心流程">核心流程</a></h2>
 <pre><code>启动 Worker Node
-    │
-    ▼
-向 Gateway API 注册 (POST /api/workers/register)
-    │
-    ▼
-获取 Worker ID
-    │
-    ├──► 心跳循环 (每 30s)
-    │    POST /api/workers/{id}/heartbeat
-    │
-    ├──► 作业消费循环
-    │    Redis BRPOP job_queue
-    │         │
-    │         ▼
-    │    启动 Orchestrator 子进程
-    │         │
-    │         ▼
-    │    报告解析 → 漏洞写入
-    │         │
-    │         ▼
-    │    API 结果上报
-    │
-    └──► 思考模式切换 (可选)
-         POST /api/workers/{id}/thinking-toggle
+│
+▼
+向 Gateway API 注册 (POST /api/workers/{id}/register)
+│
+├──► 心跳循环 (每 30s)
+│    POST /api/workers/{id}/heartbeat
+│
+└──► 作业消费循环
+     Redis BRPOP scan:job:queue
+     │
+     ▼
+     启动 Orchestrator 子进程
+     │
+     ▼
+     报告解析 → 漏洞写入
+     │
+     ▼
+     API 结果上报
 </code></pre>
-<h2 id="注册流程"><a class="header" href="#注册流程">注册流程</a></h2>
-<pre><code class="language-python">async def register_with_gateway():
-    response = await httpx.post(f"{GATEWAY_URL}/api/workers/register", json={
-        "hostname": socket.gethostname(),
-        "ip_address": get_local_ip(),
-        "slots_count": 3,
-    })
-    worker_id = response.json()["worker_id"]
-    return worker_id
-</code></pre>
-<p>注册后 Gateway 为 Worker 分配唯一 ID，Worker 在后续心跳和作业处理中使用此 ID。</p>
-<h2 id="心跳机制"><a class="header" href="#心跳机制">心跳机制</a></h2>
-<pre><code class="language-python">async def heartbeat_loop(worker_id: str):
-    while True:
-        await httpx.post(
-            f"{GATEWAY_URL}/api/workers/{worker_id}/heartbeat",
-            json={"status": get_current_status()}
-        )
-        await asyncio.sleep(30)
-</code></pre>
-<p>心跳间隔 30 秒，携带 Worker 当前状态信息。</p>
-<h2 id="作业消费"><a class="header" href="#作业消费">作业消费</a></h2>
-<pre><code class="language-python">async def job_consumer_loop(worker_id: str):
-    while True:
-        job_data = await redis.brpop("job_queue", timeout=5)
-        if job_data:
-            # 1. 占用 Slot
-            await acquire_slot(worker_id, slot_id)
-            # 2. 运行 Orchestrator
-            result = await run_orchestrator(job_data)
-            # 3. 上报结果
-            await report_results(worker_id, job_data, result)
-            # 4. 释放 Slot
-            await release_slot(worker_id, slot_id)
-</code></pre>
-<h2 id="git-同步-workergit_syncpy"><a class="header" href="#git-同步-workergit_syncpy">Git 同步 (<code>worker/git_sync.py</code>)</a></h2>
-<p>Worker 级别的 Git 同步功能，与 <code>backend/services/git_sync.py</code> 功能镜像：</p>
-<ul>
-<li><code>get_head_commit()</code> — 获取当前 HEAD</li>
-<li><code>get_changes_since()</code> — 获取增量变更</li>
-<li><code>get_all_cpp_files()</code> — 获取所有 C/C++ 文件</li>
-<li><code>get_diff()</code> — 获取 diff 内容</li>
-</ul>
 <h2 id="环境变量"><a class="header" href="#环境变量">环境变量</a></h2>
 <div class="table-wrapper">
 <table>
@@ -1527,93 +1697,102 @@ Replace memcpy with memcpy_s or add bounds checking...
 <tr><td><code>GATEWAY_URL</code></td><td><code>http://localhost:8000</code></td><td>Gateway API 地址</td></tr>
 <tr><td><code>REDIS_URL</code></td><td><code>redis://localhost:6379</code></td><td>Redis 地址</td></tr>
 <tr><td><code>WORKER_SLOTS</code></td><td><code>3</code></td><td>并发槽位数</td></tr>
-<tr><td><code>HEARTBEAT_INTERVAL</code></td><td><code>30</code></td><td>心跳间隔（秒）</td></tr>
+<tr><td><code>HEARTBEAT_INTERVAL</code></td><td><code>30</code></td><td>心跳间隔 (秒)</td></tr>
 </tbody>
 </table>
 </div>
-<h2 id="启动"><a class="header" href="#启动">启动</a></h2>
-<pre><code class="language-bash"># 基本启动
-python3 worker_node.py
-
-# 自定义 Gateway 和 Redis
-GATEWAY_URL=http://gateway:8000 REDIS_URL=redis://redis:6379 python3 worker_node.py
-</code></pre>
+<h2 id="与-remote-agent-的对比"><a class="header" href="#与-remote-agent-的对比">与 Remote Agent 的对比</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>特性</th><th>Remote Agent</th><th>Worker Node</th></tr>
+</thead>
+<tbody>
+<tr><td>部署方式</td><td>SSH 自动部署</td><td>手动启动</td></tr>
+<tr><td>作业接收</td><td>HTTP POST /scan</td><td>Redis BRPOP</td></tr>
+<tr><td>配置文件</td><td>config.json</td><td>环境变量</td></tr>
+<tr><td>需要后端 Dispatcher</td><td>是</td><td>否</td></tr>
+<tr><td>需要直连 Redis</td><td>否 (可选)</td><td>是</td></tr>
+<tr><td>适合场景</td><td>托管式集群</td><td>自主管理节点</td></tr>
+</tbody>
+</table>
+</div>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="技能与知识库"><a class="header" href="#技能与知识库">技能与知识库</a></h1>
 <h2 id="扫描技能-workerskills"><a class="header" href="#扫描技能-workerskills">扫描技能 (<code>worker/skills/</code>)</a></h2>
 <h3 id="wireless-scanyaml"><a class="header" href="#wireless-scanyaml">wireless-scan.yaml</a></h3>
-<p>10 条无线协议安全扫描规则，用于指导 <code>nga</code> AI Agent 在 C/C++ 代码审计中关注的关键安全模式：</p>
+<p>10 条无线协议安全扫描规则，用于指导 nga AI Agent 在 C/C++ 代码审计中关注的关键安全模式。</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>#</th><th>规则</th><th>说明</th></tr>
+<tr><th>#</th><th>Rule ID</th><th>规则名</th><th>严重度</th><th>说明</th></tr>
 </thead>
 <tbody>
-<tr><td>1</td><td>TLV Bounds Check</td><td>TLV (Type-Length-Value) 结构的边界检查缺失</td></tr>
-<tr><td>2</td><td>Struct Cast Safety</td><td>结构体强制类型转换的安全性</td></tr>
-<tr><td>3</td><td>Switch-Case Default</td><td>switch 语句缺少 default 分支</td></tr>
-<tr><td>4</td><td>ASN.1 Parsing</td><td>ASN.1 编解码的边界与格式验证</td></tr>
-<tr><td>5</td><td>Buffer Overflow</td><td>缓冲区溢出（memcpy/strcpy 等）</td></tr>
-<tr><td>6</td><td>Integer Overflow</td><td>整数溢出与下溢</td></tr>
-<tr><td>7</td><td>Race Condition</td><td>竞态条件与锁管理</td></tr>
-<tr><td>8</td><td>Error Path</td><td>错误路径的资源泄漏</td></tr>
-<tr><td>9</td><td>API Misuse</td><td>API 使用不当（参数顺序、返回值忽略）</td></tr>
-<tr><td>10</td><td>Crypto Weakness</td><td>加密算法弱点与密钥管理</td></tr>
+<tr><td>1</td><td>RULE-001</td><td>TLV 解析边界检查</td><td>CRITICAL</td><td>检查 TLV 消息解析中 p += length 前是否校验 remaining_len；未知 Type 是否能安全跳过；Length 回绕</td></tr>
+<tr><td>2</td><td>RULE-002</td><td>结构体强转内存安全</td><td>HIGH</td><td>检查 memcpy/reinterpret_cast/C 风格强转是否验证大小；高版本新字段是否导致越界</td></tr>
+<tr><td>3</td><td>RULE-003</td><td>Switch-Case 默认分支</td><td>MEDIUM</td><td>检查消息分发 switch-case 是否包含防御性 default 分支</td></tr>
+<tr><td>4</td><td>RULE-004</td><td>ASN.1 Optional 字段检查</td><td>HIGH</td><td>检查 Optional 字段访问前是否有 Presence 标志位校验或 NULL 检查</td></tr>
+<tr><td>5</td><td>RULE-005</td><td>相似变量名混淆</td><td>MEDIUM</td><td>检查同一作用域内相似变量名是否存在误用 (buf/buff, len/length)</td></tr>
+<tr><td>6</td><td>RULE-006</td><td>重复/冗余代码</td><td>LOW</td><td>检查复制粘贴后未修改的代码块、重复赋值/判断</td></tr>
+<tr><td>7</td><td>RULE-007</td><td>未初始化变量使用</td><td>HIGH</td><td>检查局部变量、结构体是否在使用前被初始化</td></tr>
+<tr><td>8</td><td>RULE-008</td><td>内存泄漏</td><td>HIGH</td><td>检查 malloc/calloc/strdup 后所有路径是否有 free</td></tr>
+<tr><td>9</td><td>RULE-009</td><td>空指针解引用</td><td>CRITICAL</td><td>检查返回值是否检查 NULL 后再解引用</td></tr>
+<tr><td>10</td><td>RULE-010</td><td>数组越界</td><td>CRITICAL</td><td>检查数组索引是否校验范围；循环条件是否导致越界</td></tr>
 </tbody>
 </table>
 </div>
-<p>每条规则包含：</p>
-<ul>
-<li>规则描述与审计要点</li>
-<li>C/C++ 代码示例</li>
-<li>典型漏洞模式</li>
-<li>修复建议</li>
-</ul>
-<h3 id="mcpjson"><a class="header" href="#mcpjson">.mcp.json</a></h3>
-<p>MCP (Model Context Protocol) 服务器配置，用于为 AI Agent 提供额外的工具和上下文。</p>
-<h3 id="claudemd"><a class="header" href="#claudemd">.claude.md</a></h3>
-<p>Claude 特定的技能指令文件，定义 Agent 在扫描过程中的行为约束和审计策略。</p>
+<p><strong>输出格式</strong> (JSON)：</p>
+<pre><code class="language-json">{
+  "mr_link": "MR 链接",
+  "file_path": "文件路径",
+  "line_number": 142,
+  "rule_id": "RULE-001",
+  "severity": "CRITICAL",
+  "description": "问题描述",
+  "code_snippet": "相关代码片段",
+  "suggestion": "修复建议",
+  "confidence": 0.85
+}
+</code></pre>
+<p><strong>排除规则</strong>：已包含 assert/CHECK/VERIFY 等防御宏的行；测试代码目录；第三方代码目录；置信度低于 0.5 的问题。</p>
+<h3 id="wireless-scanmcpjson"><a class="header" href="#wireless-scanmcpjson">wireless-scan.mcp.json</a></h3>
+<p>MCP (Model Context Protocol) 服务器配置，为 AI Agent 提供结构化的技能描述和参数定义。参数：mr_link (必填)、scan_rules (可选，启用规则 ID 列表)。</p>
+<h3 id="wireless-scanclaudemd"><a class="header" href="#wireless-scanclaudemd">wireless-scan.claude.md</a></h3>
+<p>Claude 特定的技能指令文件 (Markdown 格式)，包含角色设定、10 条规则 (每条含 BAD/GOOD 代码示例)、输出格式和注意事项。</p>
+<p>三个文件 (YAML / MCP JSON / Claude MD) 表达同一技能的不同载体，适配不同的 Agent 框架。</p>
 <h2 id="知识库-workerknowleage"><a class="header" href="#知识库-workerknowleage">知识库 (<code>worker/knowleage/</code>)</a></h2>
 <h3 id="wireless-radiomd"><a class="header" href="#wireless-radiomd">wireless-radio.md</a></h3>
-<p>4G/5G 无线协议代码审计领域知识库，涵盖：</p>
-<ul>
-<li><strong>协议栈基础</strong> — L1/L2/L3 层架构</li>
-<li><strong>4G LTE</strong> — RRC/PDCP/RLC/MAC 协议</li>
-<li><strong>5G NR</strong> — RRC/PDCP/RLC/MAC 新特性</li>
-<li><strong>安全机制</strong> — 加密算法、密钥派生、完整性保护</li>
-<li><strong>常见漏洞模式</strong> — 协议实现中的典型安全问题</li>
-<li><strong>审计关注点</strong> — 代码审计时应特别关注的领域</li>
-</ul>
+<p>4G/5G 无线协议代码审计领域知识库，涵盖低错问题的四大典型“雷区“：</p>
+<ol>
+<li><strong>TLV 解析陷阱与向前兼容性</strong> — 高低版本混跑时边界检查缺失</li>
+<li><strong>结构体强转与内存越界</strong> — 高版本追加字段后低版本结构体映射越界</li>
+<li><strong>Switch-Case 的“黑洞“</strong> — 缺少 default 分支，收到高版本新消息时未定义行为</li>
+<li><strong>ASN.1 生成代码的“逻辑空洞“</strong> — Optional 字段未检查 Presence 标志位</li>
+</ol>
 <h2 id="memory-rule-反馈闭环"><a class="header" href="#memory-rule-反馈闭环">Memory Rule 反馈闭环</a></h2>
-<p>Memory Rule 系统与技能/知识库协同工作：</p>
 <pre><code>扫描发现漏洞 → Accept → 生成正向 Memory Rule (pending)
-                              │
-                              ▼
-                    Committer+ 审批 → approved
-                              │
-                              ▼
-                    注入后续扫描 prompt
-                    (规划中：当前基础设施已就绪，
-                     但尚未接入 orchestrator prompt)
+│
+▼
+Committer+ 审批 → approved → 注入后续扫描 prompt (规划中)
 
-扫描误报 → Reject → 生成负向 Memory Rule (auto-active)
-                          │
-                          ▼
-                  后续扫描自动忽略此类模式
+扫描误报 → Reject → 生成负向 Memory Rule (auto-active) → 后续扫描自动忽略
 </code></pre>
 <blockquote>
-<p><strong>注意</strong>: Memory Rule 注入到 LLM prompt 的功能目前基础设施已就绪（数据库模型、API、前端管理），但尚未实际接入 Orchestrator 的扫描 prompt 中。这是路线图中的下一步工作。</p>
+<p><strong>注意</strong>: Memory Rule 注入到 LLM prompt 的功能基础设施已就绪，但尚未实际接入 Orchestrator 的扫描 prompt 中。</p>
 </blockquote>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="部署"><a class="header" href="#部署">部署</a></h1>
 <p>部署相关的详细文档。</p>
 <p>请从左侧导航选择具体章节：</p>
 <ul>
-<li><a href="#docker-部署-1">Docker 部署</a> — Docker Compose、Dockerfile、生产环境建议</li>
+<li><a href="#docker-部署">Docker 部署</a> — Docker Compose、Dockerfile、生产环境建议</li>
 <li><a href="#github-pages-文档站点">GitHub Pages 文档站点</a> — mdBook 部署、GitHub Actions 工作流</li>
 </ul>
+<blockquote>
+<p>远程 Agent 的 SSH 自动部署流程请参阅 <a href="#ssh-部署服务">Worker 引擎 → SSH 部署服务</a>。</p>
+</blockquote>
 <div style="break-before: page; page-break-before: always;"></div>
-<h1 id="docker-部署-1"><a class="header" href="#docker-部署-1">Docker 部署</a></h1>
+<h1 id="docker-部署"><a class="header" href="#docker-部署">Docker 部署</a></h1>
 <h2 id="docker-compose"><a class="header" href="#docker-compose">Docker Compose</a></h2>
 <p><strong><code>docker-compose.yml</code></strong> 定义了两个服务：</p>
 <pre><code class="language-yaml">services:
@@ -1765,24 +1944,24 @@ git-repository-url = "https://github.com/your-org/combinate-agentic-review"
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="路线图"><a class="header" href="#路线图">路线图</a></h1>
-<h2 id="phase-1--mvp--已完成"><a class="header" href="#phase-1--mvp--已完成">Phase 1 — MVP ✅ (已完成)</a></h2>
+<h2 id="phase-1--mvp-已完成"><a class="header" href="#phase-1--mvp-已完成">Phase 1 — MVP (已完成)</a></h2>
 <ul>
 <li><input disabled="" type="checkbox" checked=""> FastAPI 后端 + React 前端</li>
 <li><input disabled="" type="checkbox" checked=""> Redis 作业队列 + SSE 实时日志</li>
 <li><input disabled="" type="checkbox" checked=""> Worker Slot 并发管理</li>
-<li><input disabled="" type="checkbox" checked=""> Orchestrator (<code>nga</code> CLI) 子进程编排</li>
+<li><input disabled="" type="checkbox" checked=""> Orchestrator (nga CLI) 子进程编排</li>
 <li><input disabled="" type="checkbox" checked=""> 报告解析与漏洞提取</li>
 <li><input disabled="" type="checkbox" checked=""> Dashboard 实时监控</li>
 </ul>
-<h2 id="phase-2--漏洞memory用户管理--已完成"><a class="header" href="#phase-2--漏洞memory用户管理--已完成">Phase 2 — 漏洞/Memory/用户管理 ✅ (已完成)</a></h2>
+<h2 id="phase-2--漏洞memory用户管理-已完成"><a class="header" href="#phase-2--漏洞memory用户管理-已完成">Phase 2 — 漏洞/Memory/用户管理 (已完成)</a></h2>
 <ul>
 <li><input disabled="" type="checkbox" checked=""> JWT 认证 + 角色权限体系</li>
-<li><input disabled="" type="checkbox" checked=""> 漏洞生命周期管理 (open → accepted/rejected/assigned)</li>
+<li><input disabled="" type="checkbox" checked=""> 漏洞生命周期管理 (open -&gt; accepted/rejected/assigned)</li>
 <li><input disabled="" type="checkbox" checked=""> Memory Rule 知识库 (personal/global, positive/negative)</li>
 <li><input disabled="" type="checkbox" checked=""> 用户管理 CRUD</li>
 <li><input disabled="" type="checkbox" checked=""> 漏洞接受/拒绝自动生成 Memory Rule</li>
 </ul>
-<h2 id="phase-2--增强功能--已完成"><a class="header" href="#phase-2--增强功能--已完成">Phase 2+ — 增强功能 ✅ (已完成)</a></h2>
+<h2 id="phase-2--增强功能-已完成"><a class="header" href="#phase-2--增强功能-已完成">Phase 2+ — 增强功能 (已完成)</a></h2>
 <ul>
 <li><input disabled="" type="checkbox" checked=""> 分布式 Worker 集群 (独立 Worker Node)</li>
 <li><input disabled="" type="checkbox" checked=""> APScheduler 定时扫描</li>
@@ -1791,7 +1970,21 @@ git-repository-url = "https://github.com/your-org/combinate-agentic-review"
 <li><input disabled="" type="checkbox" checked=""> NGA 报告格式解析</li>
 <li><input disabled="" type="checkbox" checked=""> Worker Thinking 模式切换</li>
 </ul>
-<h2 id="phase-3--进行中--规划中"><a class="header" href="#phase-3--进行中--规划中">Phase 3 — 进行中 / 规划中</a></h2>
+<h2 id="phase-3--分布式与自动化-已完成"><a class="header" href="#phase-3--分布式与自动化-已完成">Phase 3 — 分布式与自动化 (已完成)</a></h2>
+<ul>
+<li><input disabled="" type="checkbox" checked=""> Dispatcher 调度循环 — 后端轮询 Redis 队列，HTTP 分发给 Agent</li>
+<li><input disabled="" type="checkbox" checked=""> Remote Agent 常驻代理 — FastAPI 服务 (port 8765)，接收 /scan 指令</li>
+<li><input disabled="" type="checkbox" checked=""> SSH 自动部署 (Deployer) — 10 步全自动部署 Agent 到远程机器</li>
+<li><input disabled="" type="checkbox" checked=""> Deploy Key 管理 — Ed25519 密钥对自动生成</li>
+<li><input disabled="" type="checkbox" checked=""> /finalize 端点 — Agent 批量上报结果</li>
+<li><input disabled="" type="checkbox" checked=""> Worker 所有权隔离 — owner_id 驱动权限，MyWorkers 页面</li>
+<li><input disabled="" type="checkbox" checked=""> 部署日志与状态追踪 — deploy_status、deploy_logs</li>
+<li><input disabled="" type="checkbox" checked=""> 失败文件高亮 — 报告查看器红色标记 + 警告横幅</li>
+<li><input disabled="" type="checkbox" checked=""> 作业断点续扫 — checkpoint 机制，Resume 恢复</li>
+<li><input disabled="" type="checkbox" checked=""> 作业状态扩展 — dispatched / interrupted / resumed</li>
+<li><input disabled="" type="checkbox" checked=""> Agent 心跳携带 Git 统计</li>
+</ul>
+<h2 id="phase-4--规划中"><a class="header" href="#phase-4--规划中">Phase 4 — 规划中</a></h2>
 <ul>
 <li><input disabled="" type="checkbox"> Memory Rule 注入到 Orchestrator prompt</li>
 <li><input disabled="" type="checkbox"> 审计日志 (Audit Log)</li>

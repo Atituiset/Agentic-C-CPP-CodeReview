@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-5dc748b6.js";
+            window.path_to_searchindex_js = "../searchindex-215a8a91.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-4550dfc0.js"></script>
+        <script src="../toc-97335460.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -182,101 +182,107 @@
                     <main>
                         <h1 id="数据流"><a class="header" href="#数据流">数据流</a></h1>
 <h2 id="作业生命周期"><a class="header" href="#作业生命周期">作业生命周期</a></h2>
-<p>一个扫描作业从创建到完成的完整数据流：</p>
-<pre><code>用户触发扫描
-    │
-    ▼
-POST /api/jobs ──────────► FastAPI Jobs Router
-    │                            │
-    │                            ▼
-    │                     创建 Job 记录 (DB)
-    │                     为每个 C/C++ 文件创建 Task 记录
-    │                            │
-    │                            ▼
-    │                     Redis LPUSH → job_queue
-    │
-    ▼
-Worker (BRPOP job_queue)
-    │
-    ▼
-Orchestrator 子进程启动
-    │
-    ├──► 对每个文件执行: nga run '&lt;prompt&gt;'
-    │         │
-    │         ├──► stdout → POST /api/slot/{slot}/push
-    │         │                    │
-    │         │                    ▼
-    │         │              Redis PUBLISH → channel:worker_{id}_slot_{n}
-    │         │                    │
-    │         │                    ▼
-    │         │              SSE handler → browser EventSource
-    │         │
-    │         └──► 生成 .md 报告到 reports/{timestamp}/
-    │
-    ▼
-扫描完成
-    │
-    ├──► 解析漏洞报告 (report_parser.py)
-    │         │
-    │         ▼
-    │    创建 Vulnerability 记录 (DB)
-    │
-    ├──► 更新 Job 状态 → completed (DB)
-    │
-    └──► 释放 Slot
+<pre><code>Create Job → pending
+     │
+     ▼
+Redis LPUSH scan:job:queue → queued
+     │
+     ▼
+Dispatcher BRPOP → dispatched
+     │
+     ▼
+HTTP POST /scan (to Agent) → running
+     │
+     ▼
+Orchestrator 扫描文件 → running
+     │
+     ├── 正常完成 → POST /finalize → completed
+     ├── 用户取消 → cancelled
+     ├── 进程中断 → interrupted
+     └── 用户恢复 → resumed → running → completed
 </code></pre>
-<h2 id="sse-通道"><a class="header" href="#sse-通道">SSE 通道</a></h2>
-<p>系统支持两种 SSE 通道：</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>通道</th><th>URL</th><th>用途</th></tr>
-</thead>
-<tbody>
-<tr><td>Legacy</td><td><code>GET /api/sse/{slot_id}</code></td><td>兼容旧版单 Worker 架构</td></tr>
-<tr><td>Worker-specific</td><td><code>GET /api/sse/worker/{worker_id}/{slot_id}</code></td><td>多 Worker 架构，每个 Worker 有独立通道</td></tr>
-</tbody>
-</table>
-</div>
-<p>前端在 NodeDetail 组件中为每个活跃 Slot 建立 EventSource 连接，实时渲染 ANSI 格式的日志输出。</p>
+<h2 id="dispatcher-分发流程"><a class="header" href="#dispatcher-分发流程">Dispatcher 分发流程</a></h2>
+<pre><code>Dispatcher Loop (lifespan 后台任务)
+│
+├── Redis BRPOP scan:job:queue (timeout=5s)
+├── 解析 job_data (JSON)
+├── 查找可用 Agent
+│   ├── 过滤 status="idle" 的 Worker
+│   ├── 排除 deploy_status != "deployed" 的 Worker
+│   └── 选择第一个匹配的 Worker
+├── 更新 Job.status = "dispatched", Job.worker_id = worker.id
+└── HTTP POST worker.backend_url/api/scan
+</code></pre>
+<h2 id="agent-finalize-流程"><a class="header" href="#agent-finalize-流程">Agent Finalize 流程</a></h2>
+<pre><code>Agent 扫描完成
+│
+├── 遍历 report_dir/*.md
+├── parse_vulnerability_report() 解析每个文件
+├── 收集漏洞列表 + 报告内容
+└── POST /api/jobs/{job_id}/finalize
+    {
+      "worker_id": "remote-01",
+      "results": [
+        {"file_path": "src/file1.c", "status": "completed",
+         "report_content": "...", "vulnerabilities": [...]},
+        {"file_path": "src/buggy.c", "status": "failed",
+         "error": "timeout after 300s"}
+      ]
+    }
+</code></pre>
+<h2 id="standalone-worker-node-路径"><a class="header" href="#standalone-worker-node-路径">Standalone Worker Node 路径</a></h2>
+<pre><code>Worker Node 进程
+│
+├── 注册到 Gateway API
+├── 心跳循环 (30s)
+└── 作业消费循环
+    ├── Redis BRPOP scan:job:queue
+    ├── acquire_slot()
+    ├── 启动 Orchestrator 子进程
+    ├── 报告解析 → 漏洞写入
+    ├── API 结果上报
+    └── release_slot()
+</code></pre>
+<h2 id="ssh-部署流程"><a class="header" href="#ssh-部署流程">SSH 部署流程</a></h2>
+<pre><code>前端 MyWorkers → Deploy 按钮
+│
+▼
+POST /api/workers/{id}/deploy (BackgroundTask)
+│
+▼
+Deployer (asyncssh)
+├── 1. deploy_status = "deploying"
+├── 2. SSH connect (key/password/deploy-key)
+├── 3. 检查 Python 3.10+
+├── 4. pip install 依赖
+├── 5. mkdir ~/.opencode-agent/
+├── 6. SFTP 上传 agent.py, orchestrator.py, git_sync.py, config.json
+├── 7. pkill 旧 Agent 进程
+├── 8. nohup python3 agent.py &amp;
+├── 9. 等待注册 (最多 60s)
+└── 10. deploy_status = "deployed" / "failed"
+</code></pre>
+<h2 id="sse-实时日志流"><a class="header" href="#sse-实时日志流">SSE 实时日志流</a></h2>
+<pre><code>前端 EventSource
+│
+├── /api/sse/worker/{worker_id}/{slot_id}?token=&lt;jwt&gt;
+│
+▼
+FastAPI SSE endpoint
+│
+├── Redis SUBSCRIBE slot:{worker_id}:{slot_id}
+└── 转发消息为 SSE event
+    data: {"type": "log", "content": "...\n"}
+    data: {"type": "status", "status": "completed"}
+</code></pre>
 <h2 id="漏洞处理流程"><a class="header" href="#漏洞处理流程">漏洞处理流程</a></h2>
-<pre><code>扫描完成 → 报告解析 → Vulnerability (open)
-                              │
-                ┌─────────────┼─────────────┐
-                ▼                            ▼
-          Accept                        Reject
-                │                            │
-                ▼                            ▼
-    MemoryRule (positive,               MemoryRule (negative,
-    pending approval)                   auto-active)
-                │
-                ▼
-    Committer+ 审批
-        │           │
-        ▼           ▼
-    approved     rejected
-</code></pre>
-<ul>
-<li><strong>Accept</strong> — 自动创建正向 Memory Rule（聚焦此类问题），需 committer+ 审批后生效</li>
-<li><strong>Reject</strong> — 自动创建负向 Memory Rule（忽略此类误报），创建即生效</li>
-</ul>
-<h2 id="git-增量扫描流程"><a class="header" href="#git-增量扫描流程">Git 增量扫描流程</a></h2>
-<pre><code>POST /api/jobs/{id}/git-sync
-    │
-    ▼
-获取 HEAD commit hash
-    │
-    ▼
-对比上次扫描的 commit → get_changes_since()
-    │
-    ▼
-获取变更文件列表 + diff
-    │
-    ▼
-仅扫描变更的 C/C++ 文件
-    │
-    ▼
-节省约 78.4% 的 LLM 推理成本
+<pre><code>/finalize 上报 → 写入 Vulnerability 表 (status=open)
+│
+├── Accept → status=accepted
+│   └── 自动生成正向 Memory Rule (is_active=False, pending 审批)
+├── Reject → status=rejected
+│   └── 自动生成负向 Memory Rule (is_active=True, 立即生效)
+└── Assign → status=assigned (分配给处理人)
 </code></pre>
 
                     </main>

@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-5dc748b6.js";
+            window.path_to_searchindex_js = "../searchindex-215a8a91.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-4550dfc0.js"></script>
+        <script src="../toc-97335460.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -182,74 +182,91 @@
                     <main>
                         <h1 id="整体架构"><a class="header" href="#整体架构">整体架构</a></h1>
 <h2 id="系统全景"><a class="header" href="#系统全景">系统全景</a></h2>
-<p>Combinate Agentic Review 采用前后端分离 + 分布式 Worker 的架构：</p>
-<pre><code>┌─────────────────────────────────────────────────────────┐
-│                    Browser (React SPA)                  │
-│  ┌──────┐ ┌──────────┐ ┌────────┐ ┌──────┐ ┌────────┐ │
-│  │Dash- │ │Worker    │ │Scan    │ │Vuln  │ │Memory  │ │
-│  │board │ │Fleet     │ │Jobs    │ │Center│ │Manager │ │
-│  └──┬───┘ └────┬─────┘ └───┬────┘ └──┬───┘ └───┬────┘ │
-│     └──────────┴───────────┴─────────┴─────────┘      │
-│                    REST API + SSE                       │
-└────────────────────────┬────────────────────────────────┘
+<pre><code>┌──────────────────────────────────────────────────────────────────┐
+│                         Frontend (React)                         │
+│  Dashboard │ ScanJobs │ VulnerabilityCenter │ Memory │ MyWorkers │
+└──────────────────────────┬───────────────────────────────────────┘
+                           │ REST API + SSE
+┌──────────────────────────▼───────────────────────────────────────┐
+│                    FastAPI Backend (8000)                         │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐    │
+│  │   Auth   │ │  Jobs    │ │ Workers  │ │  Vulnerabilities │    │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────────────┘    │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐    │
+│  │ Memory   │ │ Scheduler│ │  SSE     │ │  Deploy/DeployKey│    │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────────────┘    │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │              Dispatcher Loop (lifespan)                   │    │
+│  │  Redis BRPOP → 选 Worker → HTTP POST /scan → Agent       │    │
+│  └──────────────────────────────────────────────────────────┘    │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │              Deployer (asyncssh)                          │    │
+│  │  SSH → 检查 Python → 安装依赖 → 上传文件 → 启动 Agent    │    │
+│  └──────────────────────────────────────────────────────────┘    │
+└──────────┬───────────────┬──────────────────────────────────────┘
+           │               │
+    ┌──────▼──────┐  ┌─────▼──────┐
+    │   SQLite    │  │   Redis    │
+    │   (ORM)     │  │  (Queue)   │
+    └─────────────┘  └─────┬──────┘
                          │
-┌────────────────────────▼────────────────────────────────┐
-│                  FastAPI Gateway                         │
-│  ┌─────────┐ ┌─────────┐ ┌────────┐ ┌───────────────┐  │
-│  │Auth     │ │Jobs     │ │Slots   │ │Vulnerabilities│  │
-│  │Router   │ │Router   │ │Router  │ │Router         │  │
-│  ├─────────┤ ├─────────┤ ├────────┤ ├───────────────┤  │
-│  │Users    │ │Workers  │ │Memory  │ │SSE / Reports  │  │
-│  │Router   │ │Router   │ │Router  │ │Router         │  │
-│  └─────────┘ └─────────┘ └────────┘ └───────────────┘  │
-│                                                         │
-│  ┌──────────────────┐  ┌───────────────────────────┐   │
-│  │  SQLAlchemy ORM  │  │     Redis Client          │   │
-│  │  (SQLite)        │  │  (Pub/Sub + Job Queue)    │   │
-│  └──────────────────┘  └───────────┬───────────────┘   │
-└────────────────────────────────────┬────────────────────┘
-                                     │
-                    ┌────────────────▼────────────────┐
-                    │         Redis Server            │
-                    │   ┌──────────┐ ┌─────────────┐ │
-                    │   │Pub/Sub   │ │Job Queue    │ │
-                    │   │(logs/meta│ │(BRPOP/LPUSH)│ │
-                    │   └──────────┘ └─────────────┘ │
-                    └────────────────┬───────────────┘
-                                     │
-          ┌──────────────────────────┼──────────────────────────┐
-          │                          │                          │
-┌─────────▼──────────┐  ┌───────────▼─────────┐  ┌────────────▼───────┐
-│  Local Worker Loop │  │  Worker Node A      │  │  Worker Node B     │
-│  (in-process)      │  │  (worker_node.py)   │  │  (worker_node.py)  │
-│                    │  │                     │  │                    │
-│  ┌──────────────┐  │  │  ┌──────────────┐  │  │  ┌──────────────┐  │
-│  │ Orchestrator │  │  │  │ Orchestrator │  │  │  │ Orchestrator │  │
-│  │ (nga CLI)    │  │  │  │ (nga CLI)    │  │  │  │ (nga CLI)    │  │
-│  │ 3 slots      │  │  │  │ 3 slots      │  │  │  │ 3 slots      │  │
-│  └──────────────┘  │  │  └──────────────┘  │  │  └──────────────┘  │
-└────────────────────┘  └─────────────────────┘  └────────────────────┘
+        ┌────────────────┼────────────────┐
+        │                │                │
+  ┌─────▼─────┐   ┌─────▼─────┐   ┌─────▼─────┐
+  │  Agent 1  │   │  Agent 2  │   │  Agent N  │
+  │ (8765)    │   │ (8765)    │   │ (8765)    │
+  │ ┌───────┐ │   │           │   │           │
+  │ │Orch.  │ │   │           │   │           │
+  │ │ nga   │ │   │           │   │           │
+  │ └───────┘ │   │           │   │           │
+  └───────────┘   └───────────┘   └───────────┘
+  (Remote Machines via SSH)
 </code></pre>
 <h2 id="关键设计决策"><a class="header" href="#关键设计决策">关键设计决策</a></h2>
-<h3 id="双-worker-架构"><a class="header" href="#双-worker-架构">双 Worker 架构</a></h3>
-<p>系统支持两种 Worker 模式：</p>
-<ol>
-<li><strong>Local Worker Loop</strong> — 内嵌在 FastAPI 进程中，通过 <code>backend/services/worker.py</code> 的 <code>worker_loop()</code> 函数实现，直接从 Redis 队列消费作业</li>
-<li><strong>Standalone Worker Node</strong> — 通过 <code>worker_node.py</code> 独立运行，通过 HTTP API 注册、发送心跳，通过 Redis 消费作业</li>
-</ol>
-<p>两种 Worker 共享相同的 Orchestrator 子进程调用逻辑，确保行为一致。</p>
-<h3 id="slot-并发模型"><a class="header" href="#slot-并发模型">Slot 并发模型</a></h3>
-<p>每个 Worker 拥有 3 个并发槽位（可配置），通过内存中的 <code>worker_slots</code> 字典管理：</p>
+<h3 id="1-dispatcher--agent-模式"><a class="header" href="#1-dispatcher--agent-模式">1. Dispatcher + Agent 模式</a></h3>
+<p>后端 Dispatcher 在 lifespan 中启动后台循环，通过 Redis BRPOP 消费作业队列，然后通过 HTTP POST /scan 将作业分发给已注册的 Remote Agent。</p>
+<p><strong>为什么不直接让 Agent 消费 Redis？</strong></p>
 <ul>
-<li><code>acquire</code> — 占用槽位</li>
-<li><code>push</code> — 推送日志/元数据</li>
-<li><code>status</code> — 查询状态</li>
-<li><code>release</code> — 释放槽位</li>
+<li>Agent 可能部署在无法直连 Redis 的网络环境</li>
+<li>后端可以统一调度策略（负载均衡、亲和性）</li>
+<li>部署更简单 — Agent 只需知道后端 URL</li>
 </ul>
-<h3 id="sse-实时推送"><a class="header" href="#sse-实时推送">SSE 实时推送</a></h3>
-<p>Orchestrator 子进程的输出通过以下链路实时推送至浏览器：</p>
-<pre><code>Orchestrator stdout → POST /api/slot/{id}/push → Redis PUBLISH → SSE handler → browser EventSource
-</code></pre>
+<h3 id="2-双-worker-模式"><a class="header" href="#2-双-worker-模式">2. 双 Worker 模式</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>模式</th><th>Agent</th><th>Worker Node</th></tr>
+</thead>
+<tbody>
+<tr><td>作业接收</td><td>HTTP POST /scan (被动)</td><td>Redis BRPOP (主动)</td></tr>
+<tr><td>部署方式</td><td>SSH 自动部署</td><td>手动启动</td></tr>
+<tr><td>需要直连 Redis</td><td>否</td><td>是</td></tr>
+<tr><td>需要后端 Dispatcher</td><td>是</td><td>否</td></tr>
+<tr><td>适合场景</td><td>托管式集群</td><td>自主管理节点</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="3-finalize-端点"><a class="header" href="#3-finalize-端点">3. /finalize 端点</a></h3>
+<p>Agent 扫描完成后通过 /finalize 批量上报结果（含报告内容），后端将报告写入本地存储。这是 Agent 与后端的核心数据通道。</p>
+<h3 id="4-worker-所有权"><a class="header" href="#4-worker-所有权">4. Worker 所有权</a></h3>
+<p>每个 Worker 有 owner_id 字段，用户只能管理自己创建的 Worker。Admin 可查看所有 Worker。</p>
+<h2 id="技术选型"><a class="header" href="#技术选型">技术选型</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>组件</th><th>选型</th><th>理由</th></tr>
+</thead>
+<tbody>
+<tr><td>Web 框架</td><td>FastAPI</td><td>异步、自动 OpenAPI 文档</td></tr>
+<tr><td>ORM</td><td>SQLAlchemy 2.0</td><td>成熟、类型提示友好</td></tr>
+<tr><td>队列</td><td>Redis</td><td>轻量、BRPOP 天然适合作业分发</td></tr>
+<tr><td>前端</td><td>React 19 + Vite</td><td>生态成熟、HMR 快</td></tr>
+<tr><td>样式</td><td>Tailwind CSS</td><td>Dark GitHub 风格、快速开发</td></tr>
+<tr><td>SSH</td><td>asyncssh</td><td>纯 Python 异步 SSH 库</td></tr>
+<tr><td>子进程</td><td>asyncio.subprocess</td><td>Orchestrator 进程管理</td></tr>
+</tbody>
+</table>
+</div>
 
                     </main>
 
