@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-5dc748b6.js";
+            window.path_to_searchindex_js = "../searchindex-215a8a91.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-4550dfc0.js"></script>
+        <script src="../toc-97335460.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -190,12 +190,14 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     # 2. Seed 默认管理员 (admin/admin123)
     seed_default_admin()
-    # 3. 启动 APScheduler 调度器
+    # 3. 生成 SSH Deploy Key (~/.opencode/keys/id_ed25519)
+    ensure_deploy_key()
+    # 4. 启动 APScheduler 调度器
     scheduler = get_scheduler()
     scheduler.start()
-    # 4. 启动本地 Worker 循环
-    asyncio.create_task(worker_loop())
-    # 5. 初始化 Redis 连接池
+    # 5. 启动 Dispatcher 调度循环 (后台任务)
+    asyncio.create_task(dispatcher_loop())
+    # 6. 初始化 Redis 连接池
     await redis_client.initialize()
     yield
     # 清理
@@ -208,20 +210,20 @@ async def lifespan(app: FastAPI):
 <tr><th>路由前缀</th><th>模块</th><th>说明</th></tr>
 </thead>
 <tbody>
-<tr><td><code>/api/jobs</code></td><td><code>routers/jobs.py</code></td><td>扫描作业管理</td></tr>
+<tr><td><code>/api/auth</code></td><td><code>routers/auth.py</code></td><td>认证 (login/me)</td></tr>
+<tr><td><code>/api/jobs</code></td><td><code>routers/jobs.py</code></td><td>扫描作业管理 (含 /finalize, /resume, /cancel)</td></tr>
+<tr><td><code>/api/workers</code></td><td><code>routers/workers.py</code></td><td>Worker 节点管理 (含 /deploy, /deploy-logs, /deploy-key)</td></tr>
 <tr><td><code>/api/sse</code></td><td><code>routers/sse.py</code></td><td>Server-Sent Events</td></tr>
 <tr><td><code>/api/slot</code></td><td><code>routers/slots.py</code></td><td>Worker Slot 管理</td></tr>
 <tr><td><code>/api/reports</code></td><td><code>routers/reports.py</code></td><td>报告查看</td></tr>
-<tr><td><code>/api/workers</code></td><td><code>routers/workers.py</code></td><td>Worker 节点管理</td></tr>
-<tr><td><code>/api/auth</code></td><td><code>routers/auth.py</code></td><td>认证</td></tr>
 <tr><td><code>/api/users</code></td><td><code>routers/users.py</code></td><td>用户管理</td></tr>
 <tr><td><code>/api/vulnerabilities</code></td><td><code>routers/vulnerabilities.py</code></td><td>漏洞管理</td></tr>
-<tr><td><code>/api/memory-rules</code></td><td><code>routers/memory.py</code></td><td>Memory Rule 管理</td></tr>
+<tr><td><code>/api/memory-rules</code></td><td><code>routers/memory.py</code></td><td>Memory Rule 管理 (含 /submit-global)</td></tr>
 </tbody>
 </table>
 </div>
-<h3 id="静态文件服务"><a class="header" href="#静态文件服务">静态文件服务</a></h3>
-<p>前端构建产物 (<code>frontend/dist/</code>) 通过 FastAPI StaticFiles 中间件直接提供服务：</p>
+<h3 id="spa-路由兜底"><a class="header" href="#spa-路由兜底">SPA 路由兜底</a></h3>
+<p>前端构建产物通过 FastAPI StaticFiles 中间件提供服务，所有非 /api/ 路径返回 index.html：</p>
 <pre><code class="language-python">app.mount("/", StaticFiles(directory="frontend/dist", html=True))
 </code></pre>
 <h2 id="配置"><a class="header" href="#配置">配置</a></h2>
@@ -239,7 +241,6 @@ Base = declarative_base()
 </code></pre>
 <h2 id="redis-客户端"><a class="header" href="#redis-客户端">Redis 客户端</a></h2>
 <p><strong><code>backend/redis_client.py</code></strong> — 异步 Redis 连接池</p>
-<p>提供以下核心功能：</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -248,8 +249,8 @@ Base = declarative_base()
 <tbody>
 <tr><td><code>publish_log(channel, message)</code></td><td>发布日志消息到 Pub/Sub</td></tr>
 <tr><td><code>publish_meta(channel, data)</code></td><td>发布元数据到 Pub/Sub</td></tr>
-<tr><td><code>push_job_queue(job_data)</code></td><td>LPUSH 作业到队列</td></tr>
-<tr><td><code>pop_job_queue(timeout)</code></td><td>BRPOP 从队列取作业</td></tr>
+<tr><td><code>push_job_queue(job_data)</code></td><td>LPUSH 作业到 scan:job:queue</td></tr>
+<tr><td><code>pop_job_queue(timeout)</code></td><td>BRPOP 从 scan:job:queue 取作业</td></tr>
 </tbody>
 </table>
 </div>

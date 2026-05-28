@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-5dc748b6.js";
+            window.path_to_searchindex_js = "../searchindex-215a8a91.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-4550dfc0.js"></script>
+        <script src="../toc-97335460.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -181,12 +181,12 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="orchestrator-编排器"><a class="header" href="#orchestrator-编排器">Orchestrator 编排器</a></h1>
-<p><strong><code>worker/orchestrator.py</code></strong> — 核心扫描编排器（~1300 行）</p>
+<p><strong><code>worker/orchestrator.py</code></strong> — 核心扫描编排器</p>
 <h2 id="cli-接口"><a class="header" href="#cli-接口">CLI 接口</a></h2>
 <pre><code class="language-bash">python3 worker/orchestrator.py \
   --repo /path/to/repo \
   --files file1.cpp file2.c \
-  --diff "diff_content" \
+  --diff "target_commit" \
   --full \
   --debug \
   --web-port 8080 \
@@ -200,11 +200,11 @@
 <tbody>
 <tr><td><code>--repo</code></td><td>目标仓库路径</td></tr>
 <tr><td><code>--files</code></td><td>指定扫描文件列表</td></tr>
-<tr><td><code>--diff</code></td><td>增量 diff 内容</td></tr>
+<tr><td><code>--diff</code></td><td>增量扫描目标 commit</td></tr>
 <tr><td><code>--full</code></td><td>全量扫描模式</td></tr>
 <tr><td><code>--debug</code></td><td>调试模式</td></tr>
 <tr><td><code>--web-port</code></td><td>Web 监控端口</td></tr>
-<tr><td><code>-c</code></td><td>并发数（默认 3）</td></tr>
+<tr><td><code>-c</code></td><td>并发数 (默认 3)</td></tr>
 </tbody>
 </table>
 </div>
@@ -215,7 +215,6 @@
         self.results = []
 
     async def scan_file(self, filepath: str) -&gt; ScanResult:
-        """扫描单个文件"""
         async with self.semaphore:
             # 1. 构造扫描 prompt
             # 2. 执行: nga run '&lt;prompt&gt;'
@@ -224,57 +223,42 @@
             # 5. 返回 ScanResult
 
     async def run(self, files: list[str]):
-        """并发扫描所有文件"""
         tasks = [self.scan_file(f) for f in files]
         await asyncio.gather(*tasks)
         # 生成 summary.md
 </code></pre>
 <h2 id="子进程管理"><a class="header" href="#子进程管理">子进程管理</a></h2>
-<h3 id="超时策略"><a class="header" href="#超时策略">超时策略</a></h3>
-<p>动态超时根据 diff 行数计算：</p>
+<h3 id="动态超时"><a class="header" href="#动态超时">动态超时</a></h3>
 <pre><code class="language-python">def calculate_timeout(diff_lines: int) -&gt; int:
-    base = 300  # 5 分钟基础超时
-    extra = min(diff_lines * 2, 600)  # 每行增加 2s，最多 10 分钟
-    return base + extra  # 范围: 300s - 900s
+    base = 300                          # 5 分钟基础
+    extra = min(diff_lines // 10 * 60, 600)  # 每 10 行增加 60s，最多 10 分钟
+    return base + extra                 # 范围: 300s - 900s
 </code></pre>
 <h3 id="终止策略"><a class="header" href="#终止策略">终止策略</a></h3>
-<pre><code>1. 发送 SIGTERM (软终止)
-2. 等待 10 秒
-3. 如果进程仍在运行，发送 SIGKILL (硬终止)
-</code></pre>
+<ol>
+<li>发送 SIGTERM (软终止)</li>
+<li>等待 10 秒</li>
+<li>如果进程仍在运行，发送 SIGKILL (硬终止)</li>
+</ol>
 <h3 id="并发控制"><a class="header" href="#并发控制">并发控制</a></h3>
-<p>使用 <code>asyncio.Semaphore</code> 限制并发数（默认 3）：</p>
-<pre><code class="language-python">self.semaphore = asyncio.Semaphore(concurrency)
-
-async def scan_file(self, filepath):
-    async with self.semaphore:
-        # 同一时刻最多 3 个 nga 子进程
-        ...
-</code></pre>
+<p>使用 asyncio.Semaphore 限制并发数 (默认 3)。</p>
 <h2 id="报告生成"><a class="header" href="#报告生成">报告生成</a></h2>
-<h3 id="单文件报告"><a class="header" href="#单文件报告">单文件报告</a></h3>
 <p>每个文件生成独立的 Markdown 报告：</p>
-<pre><code>reports/{timestamp}/
+<pre><code>reports/{job_id}/
 ├── file1.cpp.md       # 单文件审计报告
-├── file2.c.md         # 单文件审计报告
+├── file2.c.md
 ├── protocol/
-│   └── packet.c.md    # 子目录文件
+│   └── packet.c.md
 └── summary.md         # 汇总报告
 </code></pre>
-<h3 id="报告格式"><a class="header" href="#报告格式">报告格式</a></h3>
-<pre><code class="language-markdown">## VULN-001: Buffer Overflow in process_packet
-
-**Severity:** Critical
-**File:** src/protocol/packet.c:142
-**Category:** Memory Safety
-
-### Description
-The function `process_packet()` at line 142 performs an unchecked
-memcpy into a fixed-size buffer...
-
-### Recommendation
-Replace memcpy with memcpy_s or add bounds checking...
+<h2 id="断点续扫"><a class="header" href="#断点续扫">断点续扫</a></h2>
+<p>将已扫描文件列表保存为 checkpoint JSON：</p>
+<pre><code class="language-json">{
+  "completed": ["src/file1.c", "src/file2.cpp"],
+  "failed": ["src/buggy.c"]
+}
 </code></pre>
+<p>中断后可从 checkpoint 恢复，跳过已完成文件继续扫描。</p>
 <h2 id="工厂函数"><a class="header" href="#工厂函数">工厂函数</a></h2>
 <pre><code class="language-python">def create_orchestrator(repo_path: str, **kwargs) -&gt; OpenCodeOrchestrator:
     """程序化创建 Orchestrator 实例，供 Worker Service 调用"""
@@ -285,7 +269,7 @@ Replace memcpy with memcpy_s or add bounds checking...
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../worker/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../worker/deployer.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -299,7 +283,7 @@ Replace memcpy with memcpy_s or add bounds checking...
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../worker/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../worker/deployer.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

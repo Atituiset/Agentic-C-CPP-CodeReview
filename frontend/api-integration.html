@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-5dc748b6.js";
+            window.path_to_searchindex_js = "../searchindex-215a8a91.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-4550dfc0.js"></script>
+        <script src="../toc-97335460.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -182,7 +182,7 @@
                     <main>
                         <h1 id="状态管理与-api-集成"><a class="header" href="#状态管理与-api-集成">状态管理与 API 集成</a></h1>
 <h2 id="auth-context-contextauthcontexttsx"><a class="header" href="#auth-context-contextauthcontexttsx">Auth Context (<code>context/AuthContext.tsx</code>)</a></h2>
-<p>应用级别的认证状态管理：</p>
+<p>应用级认证状态管理：</p>
 <pre><code class="language-tsx">interface AuthContextType {
   user: MeResponse | null;
   token: string | null;
@@ -191,86 +191,46 @@
   isAuthenticated: boolean;
 }
 </code></pre>
-<h3 id="关键行为"><a class="header" href="#关键行为">关键行为</a></h3>
 <ul>
-<li>登录成功后将 JWT Token 存储到 <code>localStorage</code></li>
-<li>每次应用加载时从 <code>localStorage</code> 恢复 Token</li>
-<li>调用 <code>GET /api/auth/me</code> 验证 Token 有效性</li>
+<li>登录成功后将 JWT Token 存储到 localStorage</li>
+<li>每次应用加载从 localStorage 恢复 Token</li>
+<li>调用 GET /api/auth/me 验证 Token 有效性</li>
 <li>未认证时自动重定向至 LoginPage</li>
-<li>登出时清除 <code>localStorage</code> 中的 Token</li>
+<li>登出时清除 localStorage 中的 Token</li>
 </ul>
 <h2 id="api-客户端-hooksuseapits"><a class="header" href="#api-客户端-hooksuseapits">API 客户端 (<code>hooks/useApi.ts</code>)</a></h2>
 <p>统一的后端 API 调用封装，所有请求自动携带 JWT Bearer Token：</p>
-<h3 id="api-分组"><a class="header" href="#api-分组">API 分组</a></h3>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>分组</th><th>方法</th><th>说明</th></tr>
 </thead>
 <tbody>
-<tr><td><strong>Jobs</strong></td><td><code>fetchJobs()</code>, <code>createJob()</code>, <code>cancelJob()</code>, <code>resumeJob()</code>, <code>gitSyncJob()</code></td><td>扫描作业管理</td></tr>
-<tr><td><strong>Workers</strong></td><td><code>fetchWorkers()</code>, <code>registerWorker()</code>, <code>heartbeat()</code>, <code>getGitStatus()</code></td><td>Worker 管理</td></tr>
-<tr><td><strong>Reports</strong></td><td><code>fetchReportList()</code>, <code>fetchReportContent()</code></td><td>报告查看</td></tr>
-<tr><td><strong>Vulnerabilities</strong></td><td><code>fetchVulnerabilities()</code>, <code>acceptVulnerability()</code>, <code>rejectVulnerability()</code>, <code>assignVulnerability()</code></td><td>漏洞管理</td></tr>
-<tr><td><strong>Memory</strong></td><td><code>fetchMemoryRules()</code>, <code>createMemoryRule()</code>, <code>approveMemoryRule()</code>, <code>deleteMemoryRule()</code></td><td>Memory Rule</td></tr>
-<tr><td><strong>Users</strong></td><td><code>fetchUsers()</code>, <code>createUser()</code>, <code>deleteUser()</code></td><td>用户管理</td></tr>
-<tr><td><strong>Scheduler</strong></td><td><code>getSchedule()</code>, <code>updateSchedule()</code></td><td>调度配置</td></tr>
+<tr><td><strong>Jobs</strong></td><td>fetchJobs, createJob, cancelJob, resumeJob, finalizeJob</td><td>扫描作业管理</td></tr>
+<tr><td><strong>Workers</strong></td><td>fetchWorkers, createWorker, deployWorker, deleteWorker, updateWorker, getDeployKey, getDeployLogs, updateShowThinking</td><td>Worker 管理</td></tr>
+<tr><td><strong>Reports</strong></td><td>fetchReportList, fetchReportContent</td><td>报告查看</td></tr>
+<tr><td><strong>Vulnerabilities</strong></td><td>fetchVulnerabilities, acceptVulnerability, rejectVulnerability, assignVulnerability</td><td>漏洞管理</td></tr>
+<tr><td><strong>Memory</strong></td><td>fetchMemoryRules, createMemoryRule, approveMemoryRule, submitGlobal, deleteMemoryRule</td><td>Memory Rule</td></tr>
+<tr><td><strong>Users</strong></td><td>fetchUsers, createUser, deleteUser</td><td>用户管理</td></tr>
+<tr><td><strong>Scheduler</strong></td><td>getSchedule, updateSchedule, getSchedulerStatus</td><td>调度配置</td></tr>
 </tbody>
 </table>
 </div>
-<h3 id="请求示例"><a class="header" href="#请求示例">请求示例</a></h3>
-<pre><code class="language-typescript">const createJob = async (repoPath: string, workerId: string) =&gt; {
-  const res = await fetch('/api/jobs', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify({ repo_path: repoPath, worker_id: workerId }),
-  });
-  return res.json();
-};
-</code></pre>
 <h2 id="sse-连接管理"><a class="header" href="#sse-连接管理">SSE 连接管理</a></h2>
-<p>App.tsx 中管理 SSE (EventSource) 连接：</p>
-<pre><code class="language-tsx">// 为每个活跃的 Worker Slot 建立 EventSource
-useEffect(() =&gt; {
-  workers.forEach(worker =&gt; {
-    worker.slots.forEach(slot =&gt; {
-      if (slot.status === 'busy') {
-        const es = new EventSource(
-          `/api/sse/worker/${worker.id}/${slot.id}?token=${token}`
-        );
-        es.onmessage = (event) =&gt; {
-          // 更新 slot 日志状态
-        };
-      }
-    });
-  });
-}, [workers]);
+<p>App.tsx 中管理 SSE (EventSource) 连接，为每个活跃的 Worker Slot 建立 EventSource：</p>
+<pre><code class="language-tsx">const es = new EventSource(
+  `/api/sse/worker/${worker.id}/${slot.id}?token=${token}`
+);
+es.onmessage = (event) =&gt; { /* 更新 slot 日志状态 */ };
 </code></pre>
 <h2 id="视图路由"><a class="header" href="#视图路由">视图路由</a></h2>
-<p>App.tsx 使用简单的状态路由（非 React Router），通过 <code>currentView</code> 状态切换组件：</p>
-<pre><code class="language-tsx">const renderView = () =&gt; {
-  switch (currentView) {
-    case 'dashboard': return &lt;DashboardMain /&gt;;
-    case 'worker-fleet': return &lt;WorkerFleet /&gt;;
-    case 'scan-jobs': return &lt;ScanJobsQueue /&gt;;
-    case 'vulnerability-center': return &lt;VulnerabilityCenter /&gt;;
-    case 'memory-manager': return &lt;MemoryManager /&gt;;
-    case 'user-management': return &lt;UserManager /&gt;;
-    case 'node-detail': return &lt;NodeDetail /&gt;;
-    case 'report-viewer': return &lt;ReportViewer /&gt;;
-    default: return &lt;DashboardMain /&gt;;
-  }
-};
-</code></pre>
+<p>App.tsx 使用简单状态路由（非 React Router），通过 currentView 切换组件：DashboardMain、PersonalDashboard、WorkerFleet、MyWorkers、ScanJobsQueue、VulnerabilityCenter、MemoryManager、UserManager、NodeDetail、ReportViewer。</p>
 <h2 id="侧边栏导航"><a class="header" href="#侧边栏导航">侧边栏导航</a></h2>
 <p>根据用户角色动态显示：</p>
 <ul>
-<li><strong>admin</strong>: 所有导航项可见</li>
-<li><strong>committer</strong>: 隐藏 User Management</li>
-<li><strong>user</strong>: 仅 Dashboard + Vulnerability Center + Memory Manager</li>
+<li><strong>admin</strong>: 所有导航项 (含 User Management、My Workers)</li>
+<li><strong>committer</strong>: 隐藏 User Management，可见 My Workers</li>
+<li><strong>user</strong>: Dashboard + Vulnerability Center + Memory Manager + My Workers</li>
 </ul>
 
                     </main>

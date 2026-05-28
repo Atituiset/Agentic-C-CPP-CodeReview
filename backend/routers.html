@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-5dc748b6.js";
+            window.path_to_searchindex_js = "../searchindex-215a8a91.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-4550dfc0.js"></script>
+        <script src="../toc-97335460.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -181,46 +181,78 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="api-路由"><a class="header" href="#api-路由">API 路由</a></h1>
-<h2 id="jobs-router-routersjobspy"><a class="header" href="#jobs-router-routersjobspy">Jobs Router (<code>routers/jobs.py</code>)</a></h2>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>方法</th><th>路径</th><th>说明</th><th>权限</th></tr>
-</thead>
-<tbody>
-<tr><td>POST</td><td><code>/api/jobs</code></td><td>创建扫描作业</td><td>admin/committer</td></tr>
-<tr><td>GET</td><td><code>/api/jobs</code></td><td>获取作业列表</td><td>认证用户</td></tr>
-<tr><td>GET</td><td><code>/api/jobs/{id}</code></td><td>获取作业详情</td><td>认证用户</td></tr>
-<tr><td>POST</td><td><code>/api/jobs/{id}/cancel</code></td><td>取消作业</td><td>admin/committer</td></tr>
-<tr><td>POST</td><td><code>/api/jobs/{id}/resume</code></td><td>恢复已取消的作业</td><td>admin/committer</td></tr>
-<tr><td>POST</td><td><code>/api/jobs/{id}/git-sync</code></td><td>Git 增量同步</td><td>admin/committer</td></tr>
-</tbody>
-</table>
-</div>
-<h3 id="创建作业"><a class="header" href="#创建作业">创建作业</a></h3>
-<pre><code class="language-bash">curl -X POST http://localhost:8000/api/jobs \
-  -H "Authorization: Bearer &lt;token&gt;" \
-  -H "Content-Type: application/json" \
-  -d '{"repo_path": "/path/to/repo", "worker_id": "local"}'
-</code></pre>
-<h3 id="git-增量同步"><a class="header" href="#git-增量同步">Git 增量同步</a></h3>
-<p>当调用 <code>git-sync</code> 时，系统对比当前 HEAD 与上次扫描的 commit，仅扫描变更的 C/C++ 文件，大幅降低 LLM 推理成本。</p>
-<h2 id="sse-router-routersssepy"><a class="header" href="#sse-router-routersssepy">SSE Router (<code>routers/sse.py</code>)</a></h2>
+<p>所有 API 路由定义于 <code>backend/routers/</code>，共 9 个模块。</p>
+<h2 id="auth-apiauth"><a class="header" href="#auth-apiauth">Auth (<code>/api/auth</code>)</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>方法</th><th>路径</th><th>说明</th></tr>
 </thead>
 <tbody>
-<tr><td>GET</td><td><code>/api/sse/{slot_id}</code></td><td>Legacy SSE 通道</td></tr>
-<tr><td>GET</td><td><code>/api/sse/worker/{worker_id}/{slot_id}</code></td><td>Worker 级 SSE 通道</td></tr>
+<tr><td>POST</td><td><code>/api/auth/login</code></td><td>用户名+密码登录，返回 JWT Token</td></tr>
+<tr><td>GET</td><td><code>/api/auth/me</code></td><td>获取当前用户信息 (需认证)</td></tr>
+<tr><td>PUT</td><td><code>/api/auth/me/show-thinking</code></td><td>切换当前用户的 show_thinking 偏好</td></tr>
 </tbody>
 </table>
 </div>
-<p>SSE 连接订阅 Redis Pub/Sub 频道，将 Worker 日志实时推送至浏览器：</p>
-<pre><code>EventSource → /api/sse/worker/local/0 → Redis SUBSCRIBE worker_local_slot_0
-</code></pre>
-<h2 id="slots-router-routersslotspy"><a class="header" href="#slots-router-routersslotspy">Slots Router (<code>routers/slots.py</code>)</a></h2>
+<h2 id="jobs-apijobs"><a class="header" href="#jobs-apijobs">Jobs (<code>/api/jobs</code>)</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>方法</th><th>路径</th><th>说明</th></tr>
+</thead>
+<tbody>
+<tr><td>POST</td><td><code>/api/jobs</code></td><td>创建扫描作业，推入 Redis 队列</td></tr>
+<tr><td>GET</td><td><code>/api/jobs</code></td><td>列出所有作业 (按创建时间倒序)</td></tr>
+<tr><td>GET</td><td><code>/api/jobs/{job_id}</code></td><td>获取单个作业详情</td></tr>
+<tr><td>POST</td><td><code>/api/jobs/{job_id}/progress</code></td><td>Orchestrator 上报任务进度</td></tr>
+<tr><td>POST</td><td><code>/api/jobs/{job_id}/complete</code></td><td>Worker 上报作业完成 (含 Task 结果)</td></tr>
+<tr><td>POST</td><td><code>/api/jobs/{job_id}/finalize</code></td><td>Agent 扫描完成回调：批量创建 Task/Vulnerability，写入报告文件 (无需认证)</td></tr>
+<tr><td>POST</td><td><code>/api/jobs/{job_id}/resume</code></td><td>从断点恢复中断/失败的作业</td></tr>
+<tr><td>POST</td><td><code>/api/jobs/{job_id}/cancel</code></td><td>取消运行中或排队的作业</td></tr>
+<tr><td>GET</td><td><code>/api/jobs/stats/git-sync</code></td><td>获取自上次全量扫描以来的 Git 变更统计</td></tr>
+<tr><td>GET</td><td><code>/api/jobs/scheduler/status</code></td><td>获取调度器状态，可选 worker_id 查询参数</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="workers-apiworkers"><a class="header" href="#workers-apiworkers">Workers (<code>/api/workers</code>)</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>方法</th><th>路径</th><th>说明</th></tr>
+</thead>
+<tbody>
+<tr><td>POST</td><td><code>/api/workers/{worker_id}/register</code></td><td>Agent 自注册 (无需认证)</td></tr>
+<tr><td>POST</td><td><code>/api/workers/{worker_id}/heartbeat</code></td><td>Agent 心跳上报 (无需认证)</td></tr>
+<tr><td>GET</td><td><code>/api/workers</code></td><td>列出 Worker (非 admin 按所有权过滤)</td></tr>
+<tr><td>GET</td><td><code>/api/workers/deploy-key</code></td><td>获取后端 SSH Deploy 公钥</td></tr>
+<tr><td>GET</td><td><code>/api/workers/{worker_id}</code></td><td>获取单个 Worker 详情 (所有权校验)</td></tr>
+<tr><td>PUT</td><td><code>/api/workers/{worker_id}/show-thinking</code></td><td>切换 Worker 的 show_thinking</td></tr>
+<tr><td>GET</td><td><code>/api/workers/{worker_id}/git-status</code></td><td>获取 Worker Git 状态快照</td></tr>
+<tr><td>GET</td><td><code>/api/workers/git-status/all</code></td><td>获取所有 Worker Git 状态</td></tr>
+<tr><td>GET</td><td><code>/api/workers/{worker_id}/schedule</code></td><td>获取 Worker 定时扫描配置</td></tr>
+<tr><td>PUT</td><td><code>/api/workers/{worker_id}/schedule</code></td><td>更新 Worker 定时扫描配置</td></tr>
+<tr><td>POST</td><td><code>/api/workers</code></td><td>创建新 Worker (含 SSH 配置)</td></tr>
+<tr><td>POST</td><td><code>/api/workers/{worker_id}/deploy</code></td><td>触发 SSH 自动部署 (BackgroundTask)</td></tr>
+<tr><td>GET</td><td><code>/api/workers/{worker_id}/deploy-logs</code></td><td>获取部署日志 (JSON 数组)</td></tr>
+<tr><td>PUT</td><td><code>/api/workers/{worker_id}</code></td><td>更新 Worker 配置</td></tr>
+<tr><td>DELETE</td><td><code>/api/workers/{worker_id}</code></td><td>删除 Worker 及关联数据</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="sse-apisse"><a class="header" href="#sse-apisse">SSE (<code>/api/sse</code>)</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>方法</th><th>路径</th><th>说明</th></tr>
+</thead>
+<tbody>
+<tr><td>GET</td><td><code>/api/sse/{slot_id}</code></td><td>Slot 日志 SSE 流 (旧格式)</td></tr>
+<tr><td>GET</td><td><code>/api/sse/{worker_id}/{slot_id}</code></td><td>Worker Slot 日志 SSE 流 (带 token 查询参数)</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="slots-apislot"><a class="header" href="#slots-apislot">Slots (<code>/api/slot</code>)</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -228,96 +260,65 @@
 </thead>
 <tbody>
 <tr><td>POST</td><td><code>/api/slot/{worker_id}/{slot_id}/acquire</code></td><td>占用槽位</td></tr>
-<tr><td>POST</td><td><code>/api/slot/{worker_id}/{slot_id}/push</code></td><td>推送日志/元数据</td></tr>
-<tr><td>GET</td><td><code>/api/slot/{worker_id}/{slot_id}/status</code></td><td>查询槽位状态</td></tr>
+<tr><td>POST</td><td><code>/api/slot/{worker_id}/{slot_id}/push</code></td><td>推送日志到槽位 (Pub/Sub)</td></tr>
+<tr><td>POST</td><td><code>/api/slot/{worker_id}/{slot_id}/status</code></td><td>更新槽位状态</td></tr>
 <tr><td>POST</td><td><code>/api/slot/{worker_id}/{slot_id}/release</code></td><td>释放槽位</td></tr>
-<tr><td>GET</td><td><code>/api/slot/{worker_id}/status</code></td><td>查询 Worker 所有槽位</td></tr>
+<tr><td>GET</td><td><code>/api/slot/{worker_id}/status</code></td><td>获取 Worker 所有槽位状态</td></tr>
 </tbody>
 </table>
 </div>
-<h2 id="workers-router-routersworkerspy"><a class="header" href="#workers-router-routersworkerspy">Workers Router (<code>routers/workers.py</code>)</a></h2>
+<h2 id="reports-apireports"><a class="header" href="#reports-apireports">Reports (<code>/api/reports</code>)</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>方法</th><th>路径</th><th>说明</th></tr>
 </thead>
 <tbody>
-<tr><td>POST</td><td><code>/api/workers/register</code></td><td>注册 Worker 节点</td></tr>
-<tr><td>POST</td><td><code>/api/workers/{id}/heartbeat</code></td><td>心跳</td></tr>
-<tr><td>GET</td><td><code>/api/workers</code></td><td>列出所有 Worker</td></tr>
-<tr><td>GET</td><td><code>/api/workers/{id}/git-status</code></td><td>Git 状态</td></tr>
-<tr><td>PUT</td><td><code>/api/workers/{id}/schedule</code></td><td>更新调度配置</td></tr>
-<tr><td>GET</td><td><code>/api/workers/{id}/schedule</code></td><td>获取调度配置</td></tr>
+<tr><td>GET</td><td><code>/api/reports/{job_id}</code></td><td>获取作业报告文件列表</td></tr>
+<tr><td>GET</td><td><code>/api/reports/{job_id}/{filepath:path}</code></td><td>获取单个报告文件内容</td></tr>
 </tbody>
 </table>
 </div>
-<h2 id="reports-router-routersreportspy"><a class="header" href="#reports-router-routersreportspy">Reports Router (<code>routers/reports.py</code>)</a></h2>
+<h2 id="vulnerabilities-apivulnerabilities"><a class="header" href="#vulnerabilities-apivulnerabilities">Vulnerabilities (<code>/api/vulnerabilities</code>)</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>方法</th><th>路径</th><th>说明</th></tr>
 </thead>
 <tbody>
-<tr><td>GET</td><td><code>/api/reports/{job_id}</code></td><td>列出作业的所有报告文件</td></tr>
-<tr><td>GET</td><td><code>/api/reports/{job_id}/{filename}</code></td><td>获取具体报告内容</td></tr>
+<tr><td>GET</td><td><code>/api/vulnerabilities</code></td><td>列出所有漏洞 (支持过滤)</td></tr>
+<tr><td>GET</td><td><code>/api/vulnerabilities/{vuln_id}</code></td><td>获取单个漏洞详情</td></tr>
+<tr><td>POST</td><td><code>/api/vulnerabilities/{vuln_id}/accept</code></td><td>接受漏洞 (自动生成正向 Memory Rule)</td></tr>
+<tr><td>POST</td><td><code>/api/vulnerabilities/{vuln_id}/reject</code></td><td>拒绝漏洞 (自动生成负向 Memory Rule)</td></tr>
+<tr><td>POST</td><td><code>/api/vulnerabilities/{vuln_id}/assign</code></td><td>分配漏洞给处理人</td></tr>
 </tbody>
 </table>
 </div>
-<h2 id="auth-router-routersauthpy"><a class="header" href="#auth-router-routersauthpy">Auth Router (<code>routers/auth.py</code>)</a></h2>
+<h2 id="memory-rules-apimemory-rules"><a class="header" href="#memory-rules-apimemory-rules">Memory Rules (<code>/api/memory-rules</code>)</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>方法</th><th>路径</th><th>说明</th></tr>
 </thead>
 <tbody>
-<tr><td>POST</td><td><code>/api/auth/login</code></td><td>登录获取 JWT</td></tr>
-<tr><td>GET</td><td><code>/api/auth/me</code></td><td>获取当前用户信息</td></tr>
+<tr><td>GET</td><td><code>/api/memory-rules</code></td><td>列出 Memory Rule (支持 scope 过滤)</td></tr>
+<tr><td>POST</td><td><code>/api/memory-rules</code></td><td>创建 Memory Rule</td></tr>
+<tr><td>POST</td><td><code>/api/memory-rules/{rule_id}/approve</code></td><td>审批 Memory Rule (pending-&gt;active)</td></tr>
+<tr><td>POST</td><td><code>/api/memory-rules/{rule_id}/submit-global</code></td><td>提交个人规则为全局</td></tr>
+<tr><td>DELETE</td><td><code>/api/memory-rules/{rule_id}</code></td><td>删除 Memory Rule</td></tr>
 </tbody>
 </table>
 </div>
-<h2 id="users-router-routersuserspy"><a class="header" href="#users-router-routersuserspy">Users Router (<code>routers/users.py</code>)</a></h2>
+<h2 id="users-apiusers"><a class="header" href="#users-apiusers">Users (<code>/api/users</code>)</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>方法</th><th>路径</th><th>说明</th><th>权限</th></tr>
+<tr><th>方法</th><th>路径</th><th>说明</th></tr>
 </thead>
 <tbody>
-<tr><td>GET</td><td><code>/api/users</code></td><td>列出所有用户</td><td>admin</td></tr>
-<tr><td>POST</td><td><code>/api/users</code></td><td>创建用户</td><td>admin</td></tr>
-<tr><td>DELETE</td><td><code>/api/users/{id}</code></td><td>删除用户</td><td>admin</td></tr>
-</tbody>
-</table>
-</div>
-<h2 id="vulnerabilities-router-routersvulnerabilitiespy"><a class="header" href="#vulnerabilities-router-routersvulnerabilitiespy">Vulnerabilities Router (<code>routers/vulnerabilities.py</code>)</a></h2>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>方法</th><th>路径</th><th>说明</th><th>权限</th></tr>
-</thead>
-<tbody>
-<tr><td>GET</td><td><code>/api/vulnerabilities</code></td><td>列出漏洞（支持过滤）</td><td>认证用户</td></tr>
-<tr><td>GET</td><td><code>/api/vulnerabilities/{id}</code></td><td>获取漏洞详情</td><td>认证用户</td></tr>
-<tr><td>POST</td><td><code>/api/vulnerabilities/{id}/accept</code></td><td>接受漏洞</td><td>admin/committer</td></tr>
-<tr><td>POST</td><td><code>/api/vulnerabilities/{id}/reject</code></td><td>拒绝漏洞</td><td>admin/committer</td></tr>
-<tr><td>POST</td><td><code>/api/vulnerabilities/{id}/assign</code></td><td>分配漏洞</td><td>admin/committer</td></tr>
-</tbody>
-</table>
-</div>
-<h3 id="接受漏洞的副作用"><a class="header" href="#接受漏洞的副作用">接受漏洞的副作用</a></h3>
-<p>调用 <code>accept</code> 时，系统自动创建一条正向 Memory Rule（status=pending），需要 committer+ 审批后才生效。</p>
-<h3 id="拒绝漏洞的副作用"><a class="header" href="#拒绝漏洞的副作用">拒绝漏洞的副作用</a></h3>
-<p>调用 <code>reject</code> 时，系统自动创建一条负向 Memory Rule（status=approved），立即生效，后续扫描将忽略此类误报。</p>
-<h2 id="memory-router-routersmemorypy"><a class="header" href="#memory-router-routersmemorypy">Memory Router (<code>routers/memory.py</code>)</a></h2>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>方法</th><th>路径</th><th>说明</th><th>权限</th></tr>
-</thead>
-<tbody>
-<tr><td>GET</td><td><code>/api/memory-rules</code></td><td>列出 Memory Rule</td><td>认证用户</td></tr>
-<tr><td>POST</td><td><code>/api/memory-rules</code></td><td>创建 Memory Rule</td><td>认证用户</td></tr>
-<tr><td>POST</td><td><code>/api/memory-rules/{id}/approve</code></td><td>审批 Memory Rule</td><td>admin/committer</td></tr>
-<tr><td>DELETE</td><td><code>/api/memory-rules/{id}</code></td><td>删除 Memory Rule</td><td>admin/committer</td></tr>
+<tr><td>GET</td><td><code>/api/users</code></td><td>列出所有用户 (仅 admin)</td></tr>
+<tr><td>POST</td><td><code>/api/users</code></td><td>创建用户 (仅 admin)</td></tr>
+<tr><td>DELETE</td><td><code>/api/users/{user_id}</code></td><td>删除用户 (仅 admin)</td></tr>
 </tbody>
 </table>
 </div>

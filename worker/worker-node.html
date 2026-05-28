@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-5dc748b6.js";
+            window.path_to_searchindex_js = "../searchindex-215a8a91.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-4550dfc0.js"></script>
+        <script src="../toc-97335460.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -183,77 +183,28 @@
                         <h1 id="worker-node-独立节点"><a class="header" href="#worker-node-独立节点">Worker Node 独立节点</a></h1>
 <p><strong><code>worker_node.py</code></strong> — 独立 Worker 节点启动脚本</p>
 <h2 id="概述"><a class="header" href="#概述">概述</a></h2>
-<p>独立 Worker 节点可以在远程机器上运行，通过网络连接到 Gateway API 和 Redis，构成分布式扫描集群。</p>
+<p>独立 Worker 节点在远程机器上运行，通过网络连接到 Gateway API 和 Redis，直接通过 Redis BRPOP 消费作业，无需后端 Dispatcher 中转。</p>
 <h2 id="核心流程"><a class="header" href="#核心流程">核心流程</a></h2>
 <pre><code>启动 Worker Node
-    │
-    ▼
-向 Gateway API 注册 (POST /api/workers/register)
-    │
-    ▼
-获取 Worker ID
-    │
-    ├──► 心跳循环 (每 30s)
-    │    POST /api/workers/{id}/heartbeat
-    │
-    ├──► 作业消费循环
-    │    Redis BRPOP job_queue
-    │         │
-    │         ▼
-    │    启动 Orchestrator 子进程
-    │         │
-    │         ▼
-    │    报告解析 → 漏洞写入
-    │         │
-    │         ▼
-    │    API 结果上报
-    │
-    └──► 思考模式切换 (可选)
-         POST /api/workers/{id}/thinking-toggle
+│
+▼
+向 Gateway API 注册 (POST /api/workers/{id}/register)
+│
+├──► 心跳循环 (每 30s)
+│    POST /api/workers/{id}/heartbeat
+│
+└──► 作业消费循环
+     Redis BRPOP scan:job:queue
+     │
+     ▼
+     启动 Orchestrator 子进程
+     │
+     ▼
+     报告解析 → 漏洞写入
+     │
+     ▼
+     API 结果上报
 </code></pre>
-<h2 id="注册流程"><a class="header" href="#注册流程">注册流程</a></h2>
-<pre><code class="language-python">async def register_with_gateway():
-    response = await httpx.post(f"{GATEWAY_URL}/api/workers/register", json={
-        "hostname": socket.gethostname(),
-        "ip_address": get_local_ip(),
-        "slots_count": 3,
-    })
-    worker_id = response.json()["worker_id"]
-    return worker_id
-</code></pre>
-<p>注册后 Gateway 为 Worker 分配唯一 ID，Worker 在后续心跳和作业处理中使用此 ID。</p>
-<h2 id="心跳机制"><a class="header" href="#心跳机制">心跳机制</a></h2>
-<pre><code class="language-python">async def heartbeat_loop(worker_id: str):
-    while True:
-        await httpx.post(
-            f"{GATEWAY_URL}/api/workers/{worker_id}/heartbeat",
-            json={"status": get_current_status()}
-        )
-        await asyncio.sleep(30)
-</code></pre>
-<p>心跳间隔 30 秒，携带 Worker 当前状态信息。</p>
-<h2 id="作业消费"><a class="header" href="#作业消费">作业消费</a></h2>
-<pre><code class="language-python">async def job_consumer_loop(worker_id: str):
-    while True:
-        job_data = await redis.brpop("job_queue", timeout=5)
-        if job_data:
-            # 1. 占用 Slot
-            await acquire_slot(worker_id, slot_id)
-            # 2. 运行 Orchestrator
-            result = await run_orchestrator(job_data)
-            # 3. 上报结果
-            await report_results(worker_id, job_data, result)
-            # 4. 释放 Slot
-            await release_slot(worker_id, slot_id)
-</code></pre>
-<h2 id="git-同步-workergit_syncpy"><a class="header" href="#git-同步-workergit_syncpy">Git 同步 (<code>worker/git_sync.py</code>)</a></h2>
-<p>Worker 级别的 Git 同步功能，与 <code>backend/services/git_sync.py</code> 功能镜像：</p>
-<ul>
-<li><code>get_head_commit()</code> — 获取当前 HEAD</li>
-<li><code>get_changes_since()</code> — 获取增量变更</li>
-<li><code>get_all_cpp_files()</code> — 获取所有 C/C++ 文件</li>
-<li><code>get_diff()</code> — 获取 diff 内容</li>
-</ul>
 <h2 id="环境变量"><a class="header" href="#环境变量">环境变量</a></h2>
 <div class="table-wrapper">
 <table>
@@ -264,17 +215,26 @@
 <tr><td><code>GATEWAY_URL</code></td><td><code>http://localhost:8000</code></td><td>Gateway API 地址</td></tr>
 <tr><td><code>REDIS_URL</code></td><td><code>redis://localhost:6379</code></td><td>Redis 地址</td></tr>
 <tr><td><code>WORKER_SLOTS</code></td><td><code>3</code></td><td>并发槽位数</td></tr>
-<tr><td><code>HEARTBEAT_INTERVAL</code></td><td><code>30</code></td><td>心跳间隔（秒）</td></tr>
+<tr><td><code>HEARTBEAT_INTERVAL</code></td><td><code>30</code></td><td>心跳间隔 (秒)</td></tr>
 </tbody>
 </table>
 </div>
-<h2 id="启动"><a class="header" href="#启动">启动</a></h2>
-<pre><code class="language-bash"># 基本启动
-python3 worker_node.py
-
-# 自定义 Gateway 和 Redis
-GATEWAY_URL=http://gateway:8000 REDIS_URL=redis://redis:6379 python3 worker_node.py
-</code></pre>
+<h2 id="与-remote-agent-的对比"><a class="header" href="#与-remote-agent-的对比">与 Remote Agent 的对比</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>特性</th><th>Remote Agent</th><th>Worker Node</th></tr>
+</thead>
+<tbody>
+<tr><td>部署方式</td><td>SSH 自动部署</td><td>手动启动</td></tr>
+<tr><td>作业接收</td><td>HTTP POST /scan</td><td>Redis BRPOP</td></tr>
+<tr><td>配置文件</td><td>config.json</td><td>环境变量</td></tr>
+<tr><td>需要后端 Dispatcher</td><td>是</td><td>否</td></tr>
+<tr><td>需要直连 Redis</td><td>否 (可选)</td><td>是</td></tr>
+<tr><td>适合场景</td><td>托管式集群</td><td>自主管理节点</td></tr>
+</tbody>
+</table>
+</div>
 
                     </main>
 

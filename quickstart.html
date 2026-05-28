@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-5dc748b6.js";
+            window.path_to_searchindex_js = "searchindex-215a8a91.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-4550dfc0.js"></script>
+        <script src="toc-97335460.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -183,56 +183,91 @@
                         <h1 id="快速开始"><a class="header" href="#快速开始">快速开始</a></h1>
 <h2 id="前置条件"><a class="header" href="#前置条件">前置条件</a></h2>
 <ul>
-<li>Python 3.12+</li>
-<li>Node.js 22+</li>
+<li>Python 3.10+</li>
+<li>Node.js 18+</li>
 <li>Redis 7+</li>
-<li><code>nga</code> CLI (OpenCode Agent)</li>
+<li><a href="https://docs.astral.sh/uv/">uv</a> (推荐) 或 pip</li>
+<li><a href="https://rust-lang.github.io/mdBook/">mdbook</a> (仅文档构建)</li>
 </ul>
-<h2 id="本地开发"><a class="header" href="#本地开发">本地开发</a></h2>
-<h3 id="1-启动-redis"><a class="header" href="#1-启动-redis">1. 启动 Redis</a></h3>
-<pre><code class="language-bash">redis-server --daemonize yes
+<h2 id="1-启动后端"><a class="header" href="#1-启动后端">1. 启动后端</a></h2>
+<pre><code class="language-bash"># 使用 uv (推荐)
+cd backend
+uv venv &amp;&amp; source .venv/bin/activate
+uv pip install -r requirements.txt
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+# 或使用 pip
+cd backend
+python3 -m venv .venv &amp;&amp; source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 </code></pre>
-<h3 id="2-安装后端依赖"><a class="header" href="#2-安装后端依赖">2. 安装后端依赖</a></h3>
-<pre><code class="language-bash">pip install -r requirements.txt
-</code></pre>
-<h3 id="3-构建前端"><a class="header" href="#3-构建前端">3. 构建前端</a></h3>
+<p>后端启动时自动：</p>
+<ul>
+<li>创建 SQLite 数据库和默认 admin 用户 (admin / admin123)</li>
+<li>生成 SSH Deploy Key (<code>~/.opencode/keys/id_ed25519</code>)</li>
+<li>启动 Dispatcher 调度循环（轮询 Redis 队列，分发给 Agent）</li>
+</ul>
+<h2 id="2-启动前端"><a class="header" href="#2-启动前端">2. 启动前端</a></h2>
 <pre><code class="language-bash">cd frontend
 npm install
-npm run build
-cd ..
+npm run dev
 </code></pre>
-<h3 id="4-启动应用"><a class="header" href="#4-启动应用">4. 启动应用</a></h3>
-<pre><code class="language-bash">PYTHONPATH=. uvicorn backend.main:app --host 0.0.0.0 --port 8000
+<p>访问 http://localhost:5173</p>
+<h2 id="3-启动-redis"><a class="header" href="#3-启动-redis">3. 启动 Redis</a></h2>
+<pre><code class="language-bash">redis-server
 </code></pre>
-<p>应用启动后：</p>
+<p>或使用 Docker：</p>
+<pre><code class="language-bash">docker run -d -p 6379:6379 redis:7-alpine
+</code></pre>
+<h2 id="4-部署远程-agent"><a class="header" href="#4-部署远程-agent">4. 部署远程 Agent</a></h2>
+<h3 id="4a-获取-deploy-key-公钥"><a class="header" href="#4a-获取-deploy-key-公钥">4a. 获取 Deploy Key 公钥</a></h3>
+<p>登录前端 → My Workers → 点击 Deploy Key 按钮，或：</p>
+<pre><code class="language-bash">curl http://localhost:8000/api/workers/deploy-key -H "Authorization: Bearer &lt;token&gt;"
+</code></pre>
+<p>将返回的公钥添加到远程机器的 <code>~/.ssh/authorized_keys</code>。</p>
+<h3 id="4b-在前端添加-worker"><a class="header" href="#4b-在前端添加-worker">4b. 在前端添加 Worker</a></h3>
+<ol>
+<li>进入 My Workers 页面</li>
+<li>点击 Add Worker</li>
+<li>填写 Worker ID、SSH Host/Port/Username、Repo Path、Scan Mode</li>
+<li>点击 Deploy — 后端自动 SSH 部署 Agent</li>
+</ol>
+<h3 id="4c-或手动部署-agent"><a class="header" href="#4c-或手动部署-agent">4c. 或手动部署 Agent</a></h3>
+<ol>
+<li>将 <code>worker/agent.py</code>、<code>worker/orchestrator.py</code>、<code>worker/git_sync.py</code> 复制到远程机器</li>
+<li>创建 <code>~/.opencode-agent/config.json</code>：</li>
+</ol>
+<pre><code class="language-json">{
+  "worker_id": "remote-01",
+  "backend_url": "http://&lt;backend-ip&gt;:8000",
+  "redis_url": "redis://&lt;redis-ip&gt;:6379/0",
+  "repo_path": "/path/to/repo"
+}
+</code></pre>
+<ol start="3">
+<li>启动 Agent：</li>
+</ol>
+<pre><code class="language-bash">pip install redis httpx fastapi uvicorn
+cd ~/.opencode-agent
+nohup python3 agent.py &gt; logs/agent.log 2&gt;&amp;1 &amp;
+</code></pre>
+<h2 id="5-触发扫描"><a class="header" href="#5-触发扫描">5. 触发扫描</a></h2>
+<h3 id="通过前端"><a class="header" href="#通过前端">通过前端</a></h3>
 <ul>
-<li>自动创建数据库表并 seed 默认管理员账户</li>
-<li>启动调度器（APScheduler）</li>
-<li>启动本地 Worker 循环（Redis BRPOP 消费者）</li>
-<li>在 <code>http://localhost:8000</code> 提供前端静态文件服务</li>
+<li>Dashboard → Trigger Global MR Scan — 全量扫描</li>
+<li>Scan Jobs Queue → Create Job — 创建单个扫描作业</li>
 </ul>
-<h3 id="5-登录"><a class="header" href="#5-登录">5. 登录</a></h3>
-<p>访问 <code>http://localhost:8000</code>，使用默认凭据：</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>用户名</th><th>密码</th></tr>
-</thead>
-<tbody>
-<tr><td>admin</td><td>admin123</td></tr>
-</tbody>
-</table>
-</div>
-<p><img src="./images/login-page.png" alt="登录页面"></p>
-<h2 id="docker-部署"><a class="header" href="#docker-部署">Docker 部署</a></h2>
-<pre><code class="language-bash">docker compose up --build
+<h3 id="通过-api"><a class="header" href="#通过-api">通过 API</a></h3>
+<pre><code class="language-bash">curl -X POST http://localhost:8000/api/jobs \
+  -H "Authorization: Bearer &lt;token&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"mode": "full", "worker_id": "remote-01"}'
 </code></pre>
-<p>详见 <a href="./deployment/docker.html">Docker 部署</a> 章节。</p>
-<h2 id="独立-worker-节点"><a class="header" href="#独立-worker-节点">独立 Worker 节点</a></h2>
-<p>在远程机器上运行：</p>
-<pre><code class="language-bash">python3 worker_node.py
+<h2 id="docker-compose-一键启动"><a class="header" href="#docker-compose-一键启动">Docker Compose 一键启动</a></h2>
+<pre><code class="language-bash">docker compose up -d
 </code></pre>
-<p>Worker 会自动向 Gateway API 注册，通过 Redis 消费作业，并定期发送心跳。</p>
+<p>包含：后端 (8000) + 前端 (5173) + Redis (6379)</p>
 
                     </main>
 

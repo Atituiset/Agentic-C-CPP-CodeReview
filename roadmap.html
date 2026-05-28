@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-5dc748b6.js";
+            window.path_to_searchindex_js = "searchindex-215a8a91.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-4550dfc0.js"></script>
+        <script src="toc-97335460.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -181,24 +181,24 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="路线图"><a class="header" href="#路线图">路线图</a></h1>
-<h2 id="phase-1--mvp--已完成"><a class="header" href="#phase-1--mvp--已完成">Phase 1 — MVP ✅ (已完成)</a></h2>
+<h2 id="phase-1--mvp-已完成"><a class="header" href="#phase-1--mvp-已完成">Phase 1 — MVP (已完成)</a></h2>
 <ul>
 <li><input disabled="" type="checkbox" checked=""> FastAPI 后端 + React 前端</li>
 <li><input disabled="" type="checkbox" checked=""> Redis 作业队列 + SSE 实时日志</li>
 <li><input disabled="" type="checkbox" checked=""> Worker Slot 并发管理</li>
-<li><input disabled="" type="checkbox" checked=""> Orchestrator (<code>nga</code> CLI) 子进程编排</li>
+<li><input disabled="" type="checkbox" checked=""> Orchestrator (nga CLI) 子进程编排</li>
 <li><input disabled="" type="checkbox" checked=""> 报告解析与漏洞提取</li>
 <li><input disabled="" type="checkbox" checked=""> Dashboard 实时监控</li>
 </ul>
-<h2 id="phase-2--漏洞memory用户管理--已完成"><a class="header" href="#phase-2--漏洞memory用户管理--已完成">Phase 2 — 漏洞/Memory/用户管理 ✅ (已完成)</a></h2>
+<h2 id="phase-2--漏洞memory用户管理-已完成"><a class="header" href="#phase-2--漏洞memory用户管理-已完成">Phase 2 — 漏洞/Memory/用户管理 (已完成)</a></h2>
 <ul>
 <li><input disabled="" type="checkbox" checked=""> JWT 认证 + 角色权限体系</li>
-<li><input disabled="" type="checkbox" checked=""> 漏洞生命周期管理 (open → accepted/rejected/assigned)</li>
+<li><input disabled="" type="checkbox" checked=""> 漏洞生命周期管理 (open -&gt; accepted/rejected/assigned)</li>
 <li><input disabled="" type="checkbox" checked=""> Memory Rule 知识库 (personal/global, positive/negative)</li>
 <li><input disabled="" type="checkbox" checked=""> 用户管理 CRUD</li>
 <li><input disabled="" type="checkbox" checked=""> 漏洞接受/拒绝自动生成 Memory Rule</li>
 </ul>
-<h2 id="phase-2--增强功能--已完成"><a class="header" href="#phase-2--增强功能--已完成">Phase 2+ — 增强功能 ✅ (已完成)</a></h2>
+<h2 id="phase-2--增强功能-已完成"><a class="header" href="#phase-2--增强功能-已完成">Phase 2+ — 增强功能 (已完成)</a></h2>
 <ul>
 <li><input disabled="" type="checkbox" checked=""> 分布式 Worker 集群 (独立 Worker Node)</li>
 <li><input disabled="" type="checkbox" checked=""> APScheduler 定时扫描</li>
@@ -207,7 +207,21 @@
 <li><input disabled="" type="checkbox" checked=""> NGA 报告格式解析</li>
 <li><input disabled="" type="checkbox" checked=""> Worker Thinking 模式切换</li>
 </ul>
-<h2 id="phase-3--进行中--规划中"><a class="header" href="#phase-3--进行中--规划中">Phase 3 — 进行中 / 规划中</a></h2>
+<h2 id="phase-3--分布式与自动化-已完成"><a class="header" href="#phase-3--分布式与自动化-已完成">Phase 3 — 分布式与自动化 (已完成)</a></h2>
+<ul>
+<li><input disabled="" type="checkbox" checked=""> Dispatcher 调度循环 — 后端轮询 Redis 队列，HTTP 分发给 Agent</li>
+<li><input disabled="" type="checkbox" checked=""> Remote Agent 常驻代理 — FastAPI 服务 (port 8765)，接收 /scan 指令</li>
+<li><input disabled="" type="checkbox" checked=""> SSH 自动部署 (Deployer) — 10 步全自动部署 Agent 到远程机器</li>
+<li><input disabled="" type="checkbox" checked=""> Deploy Key 管理 — Ed25519 密钥对自动生成</li>
+<li><input disabled="" type="checkbox" checked=""> /finalize 端点 — Agent 批量上报结果</li>
+<li><input disabled="" type="checkbox" checked=""> Worker 所有权隔离 — owner_id 驱动权限，MyWorkers 页面</li>
+<li><input disabled="" type="checkbox" checked=""> 部署日志与状态追踪 — deploy_status、deploy_logs</li>
+<li><input disabled="" type="checkbox" checked=""> 失败文件高亮 — 报告查看器红色标记 + 警告横幅</li>
+<li><input disabled="" type="checkbox" checked=""> 作业断点续扫 — checkpoint 机制，Resume 恢复</li>
+<li><input disabled="" type="checkbox" checked=""> 作业状态扩展 — dispatched / interrupted / resumed</li>
+<li><input disabled="" type="checkbox" checked=""> Agent 心跳携带 Git 统计</li>
+</ul>
+<h2 id="phase-4--规划中"><a class="header" href="#phase-4--规划中">Phase 4 — 规划中</a></h2>
 <ul>
 <li><input disabled="" type="checkbox"> Memory Rule 注入到 Orchestrator prompt</li>
 <li><input disabled="" type="checkbox"> 审计日志 (Audit Log)</li>

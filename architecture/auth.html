@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-5dc748b6.js";
+            window.path_to_searchindex_js = "../searchindex-215a8a91.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-4550dfc0.js"></script>
+        <script src="../toc-97335460.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -181,82 +181,66 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="认证与授权"><a class="header" href="#认证与授权">认证与授权</a></h1>
-<h2 id="认证机制"><a class="header" href="#认证机制">认证机制</a></h2>
-<p>系统使用 JWT (HS256) + bcrypt 进行认证：</p>
+<h2 id="jwt-认证"><a class="header" href="#jwt-认证">JWT 认证</a></h2>
+<p>后端使用 JWT (HS256) 进行身份认证：</p>
 <ol>
-<li>用户通过 <code>POST /api/auth/login</code> 提交用户名和密码</li>
-<li>服务端使用 bcrypt 验证密码哈希</li>
-<li>验证通过后签发 JWT Token（有效期 7 天）</li>
-<li>前端将 Token 存储在 <code>localStorage</code> 中</li>
-<li>后续请求通过 <code>Authorization: Bearer &lt;token&gt;</code> 头携带</li>
+<li><code>POST /api/auth/login</code> — 用户名+密码换取 Token</li>
+<li>后续请求携带 <code>Authorization: Bearer &lt;token&gt;</code></li>
+<li>Token 过期后需重新登录</li>
 </ol>
-<h3 id="jwt-token-结构"><a class="header" href="#jwt-token-结构">JWT Token 结构</a></h3>
-<pre><code class="language-json">{
-  "sub": "admin",
-  "role": "admin",
-  "exp": 1748000000
-}
-</code></pre>
-<h3 id="关键函数"><a class="header" href="#关键函数">关键函数</a></h3>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>函数</th><th>位置</th><th>说明</th></tr>
-</thead>
-<tbody>
-<tr><td><code>hash_password()</code></td><td><code>backend/services/auth_service.py</code></td><td>bcrypt 哈希</td></tr>
-<tr><td><code>verify_password()</code></td><td><code>backend/services/auth_service.py</code></td><td>bcrypt 验证</td></tr>
-<tr><td><code>create_access_token()</code></td><td><code>backend/services/auth_service.py</code></td><td>JWT 签发</td></tr>
-<tr><td><code>decode_token()</code></td><td><code>backend/services/auth_service.py</code></td><td>JWT 解码验证</td></tr>
-<tr><td><code>get_current_user()</code></td><td><code>backend/routers/auth.py</code></td><td>FastAPI 依赖，从 Bearer Token 解析用户</td></tr>
-<tr><td><code>require_role()</code></td><td><code>backend/routers/auth.py</code></td><td>FastAPI 依赖，角色校验工厂函数</td></tr>
-</tbody>
-</table>
-</div>
+<p><strong>默认账户</strong>: admin / admin123</p>
 <h2 id="角色体系"><a class="header" href="#角色体系">角色体系</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>角色</th><th>权限</th></tr>
+<tr><th>角色</th><th>说明</th></tr>
 </thead>
 <tbody>
-<tr><td><strong>admin</strong></td><td>全部权限：用户管理、全局 Memory Rule 审批、扫描触发、漏洞管理</td></tr>
-<tr><td><strong>committer</strong></td><td>漏洞管理、Memory Rule 审批、扫描触发</td></tr>
-<tr><td><strong>user</strong></td><td>查看仪表盘、查看漏洞、创建个人 Memory Rule</td></tr>
+<tr><td>admin</td><td>系统管理员，拥有所有权限</td></tr>
+<tr><td>committer</td><td>代码提交者，可审批 Memory Rule</td></tr>
+<tr><td>user</td><td>普通用户，可创建作业和管理自己的 Worker</td></tr>
 </tbody>
 </table>
 </div>
-<h3 id="权限矩阵"><a class="header" href="#权限矩阵">权限矩阵</a></h3>
+<h2 id="权限矩阵"><a class="header" href="#权限矩阵">权限矩阵</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>功能</th><th>admin</th><th>committer</th><th>user</th></tr>
+<tr><th>操作</th><th>admin</th><th>committer</th><th>user</th></tr>
 </thead>
 <tbody>
-<tr><td>查看仪表盘</td><td>✅</td><td>✅</td><td>✅</td></tr>
-<tr><td>触发扫描</td><td>✅</td><td>✅</td><td>❌</td></tr>
-<tr><td>查看漏洞</td><td>✅</td><td>✅</td><td>✅</td></tr>
-<tr><td>接受/拒绝漏洞</td><td>✅</td><td>✅</td><td>❌</td></tr>
-<tr><td>创建个人 Memory Rule</td><td>✅</td><td>✅</td><td>✅</td></tr>
-<tr><td>创建全局 Memory Rule</td><td>✅</td><td>✅</td><td>❌</td></tr>
-<tr><td>审批 Memory Rule</td><td>✅</td><td>✅</td><td>❌</td></tr>
-<tr><td>用户管理 CRUD</td><td>✅</td><td>❌</td><td>❌</td></tr>
-<tr><td>Worker 管理</td><td>✅</td><td>✅</td><td>❌</td></tr>
+<tr><td>查看所有 Worker</td><td>Y</td><td>N</td><td>N</td></tr>
+<tr><td>管理 Worker (CRUD)</td><td>Y</td><td>仅自己</td><td>仅自己</td></tr>
+<tr><td>部署 Worker</td><td>Y</td><td>仅自己</td><td>仅自己</td></tr>
+<tr><td>创建扫描作业</td><td>Y</td><td>Y</td><td>Y</td></tr>
+<tr><td>取消/恢复作业</td><td>Y</td><td>Y</td><td>仅自己</td></tr>
+<tr><td>查看所有漏洞</td><td>Y</td><td>Y</td><td>Y</td></tr>
+<tr><td>Accept/Reject 漏洞</td><td>Y</td><td>Y</td><td>N</td></tr>
+<tr><td>Assign 漏洞</td><td>Y</td><td>Y</td><td>N</td></tr>
+<tr><td>创建 Personal Memory Rule</td><td>Y</td><td>Y</td><td>Y</td></tr>
+<tr><td>创建 Global Memory Rule</td><td>Y</td><td>Y</td><td>N</td></tr>
+<tr><td>审批 Memory Rule</td><td>Y</td><td>Y</td><td>N</td></tr>
+<tr><td>提交 Personal 为 Global</td><td>Y</td><td>Y</td><td>Y</td></tr>
+<tr><td>用户管理 CRUD</td><td>Y</td><td>N</td><td>N</td></tr>
+<tr><td>触发全局扫描</td><td>Y</td><td>N</td><td>N</td></tr>
+<tr><td>获取 Deploy Key</td><td>Y</td><td>Y</td><td>Y</td></tr>
+<tr><td>管理 Schedule</td><td>Y</td><td>Y</td><td>仅自己</td></tr>
 </tbody>
 </table>
 </div>
-<h2 id="前端认证流程"><a class="header" href="#前端认证流程">前端认证流程</a></h2>
-<pre><code class="language-tsx">// AuthContext.tsx
-const login = async (username, password) =&gt; {
-  const res = await api.post('/api/auth/login', { username, password });
-  localStorage.setItem('token', res.data.access_token);
-  setUser(await fetchMe());
-};
-
-// useApi.ts — 自动携带 Token
-const headers = { Authorization: `Bearer ${token}` };
-</code></pre>
-<p>未认证时自动重定向至 LoginPage。</p>
+<h2 id="worker-所有权隔离"><a class="header" href="#worker-所有权隔离">Worker 所有权隔离</a></h2>
+<p>Worker 模型有 owner_id 字段，实现所有权隔离：</p>
+<ul>
+<li><strong>user/committer</strong> 只能查看和管理 owner_id 等于自己的 Worker</li>
+<li><strong>admin</strong> 可查看所有 Worker</li>
+<li>创建 Worker 时自动设置 owner_id 为当前用户</li>
+<li>部署、删除、更新操作受所有权约束</li>
+</ul>
+<h2 id="finalize-端点特殊说明"><a class="header" href="#finalize-端点特殊说明">/finalize 端点特殊说明</a></h2>
+<p><code>POST /api/jobs/{job_id}/finalize</code> 不要求 JWT 认证，因为它是被 Remote Agent 调用的。Agent 在扫描完成后通过此端点上报结果。Agent 本身通过 worker_id 标识身份。</p>
+<blockquote>
+<p><strong>安全考虑</strong>: 未来版本可能增加 Agent Token 机制，为每个 Agent 分配独立的认证凭据。</p>
+</blockquote>
 
                     </main>
 

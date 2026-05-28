@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-5dc748b6.js";
+            window.path_to_searchindex_js = "../searchindex-215a8a91.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-4550dfc0.js"></script>
+        <script src="../toc-97335460.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -183,67 +183,64 @@
                         <h1 id="技能与知识库"><a class="header" href="#技能与知识库">技能与知识库</a></h1>
 <h2 id="扫描技能-workerskills"><a class="header" href="#扫描技能-workerskills">扫描技能 (<code>worker/skills/</code>)</a></h2>
 <h3 id="wireless-scanyaml"><a class="header" href="#wireless-scanyaml">wireless-scan.yaml</a></h3>
-<p>10 条无线协议安全扫描规则，用于指导 <code>nga</code> AI Agent 在 C/C++ 代码审计中关注的关键安全模式：</p>
+<p>10 条无线协议安全扫描规则，用于指导 nga AI Agent 在 C/C++ 代码审计中关注的关键安全模式。</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>#</th><th>规则</th><th>说明</th></tr>
+<tr><th>#</th><th>Rule ID</th><th>规则名</th><th>严重度</th><th>说明</th></tr>
 </thead>
 <tbody>
-<tr><td>1</td><td>TLV Bounds Check</td><td>TLV (Type-Length-Value) 结构的边界检查缺失</td></tr>
-<tr><td>2</td><td>Struct Cast Safety</td><td>结构体强制类型转换的安全性</td></tr>
-<tr><td>3</td><td>Switch-Case Default</td><td>switch 语句缺少 default 分支</td></tr>
-<tr><td>4</td><td>ASN.1 Parsing</td><td>ASN.1 编解码的边界与格式验证</td></tr>
-<tr><td>5</td><td>Buffer Overflow</td><td>缓冲区溢出（memcpy/strcpy 等）</td></tr>
-<tr><td>6</td><td>Integer Overflow</td><td>整数溢出与下溢</td></tr>
-<tr><td>7</td><td>Race Condition</td><td>竞态条件与锁管理</td></tr>
-<tr><td>8</td><td>Error Path</td><td>错误路径的资源泄漏</td></tr>
-<tr><td>9</td><td>API Misuse</td><td>API 使用不当（参数顺序、返回值忽略）</td></tr>
-<tr><td>10</td><td>Crypto Weakness</td><td>加密算法弱点与密钥管理</td></tr>
+<tr><td>1</td><td>RULE-001</td><td>TLV 解析边界检查</td><td>CRITICAL</td><td>检查 TLV 消息解析中 p += length 前是否校验 remaining_len；未知 Type 是否能安全跳过；Length 回绕</td></tr>
+<tr><td>2</td><td>RULE-002</td><td>结构体强转内存安全</td><td>HIGH</td><td>检查 memcpy/reinterpret_cast/C 风格强转是否验证大小；高版本新字段是否导致越界</td></tr>
+<tr><td>3</td><td>RULE-003</td><td>Switch-Case 默认分支</td><td>MEDIUM</td><td>检查消息分发 switch-case 是否包含防御性 default 分支</td></tr>
+<tr><td>4</td><td>RULE-004</td><td>ASN.1 Optional 字段检查</td><td>HIGH</td><td>检查 Optional 字段访问前是否有 Presence 标志位校验或 NULL 检查</td></tr>
+<tr><td>5</td><td>RULE-005</td><td>相似变量名混淆</td><td>MEDIUM</td><td>检查同一作用域内相似变量名是否存在误用 (buf/buff, len/length)</td></tr>
+<tr><td>6</td><td>RULE-006</td><td>重复/冗余代码</td><td>LOW</td><td>检查复制粘贴后未修改的代码块、重复赋值/判断</td></tr>
+<tr><td>7</td><td>RULE-007</td><td>未初始化变量使用</td><td>HIGH</td><td>检查局部变量、结构体是否在使用前被初始化</td></tr>
+<tr><td>8</td><td>RULE-008</td><td>内存泄漏</td><td>HIGH</td><td>检查 malloc/calloc/strdup 后所有路径是否有 free</td></tr>
+<tr><td>9</td><td>RULE-009</td><td>空指针解引用</td><td>CRITICAL</td><td>检查返回值是否检查 NULL 后再解引用</td></tr>
+<tr><td>10</td><td>RULE-010</td><td>数组越界</td><td>CRITICAL</td><td>检查数组索引是否校验范围；循环条件是否导致越界</td></tr>
 </tbody>
 </table>
 </div>
-<p>每条规则包含：</p>
-<ul>
-<li>规则描述与审计要点</li>
-<li>C/C++ 代码示例</li>
-<li>典型漏洞模式</li>
-<li>修复建议</li>
-</ul>
-<h3 id="mcpjson"><a class="header" href="#mcpjson">.mcp.json</a></h3>
-<p>MCP (Model Context Protocol) 服务器配置，用于为 AI Agent 提供额外的工具和上下文。</p>
-<h3 id="claudemd"><a class="header" href="#claudemd">.claude.md</a></h3>
-<p>Claude 特定的技能指令文件，定义 Agent 在扫描过程中的行为约束和审计策略。</p>
+<p><strong>输出格式</strong> (JSON)：</p>
+<pre><code class="language-json">{
+  "mr_link": "MR 链接",
+  "file_path": "文件路径",
+  "line_number": 142,
+  "rule_id": "RULE-001",
+  "severity": "CRITICAL",
+  "description": "问题描述",
+  "code_snippet": "相关代码片段",
+  "suggestion": "修复建议",
+  "confidence": 0.85
+}
+</code></pre>
+<p><strong>排除规则</strong>：已包含 assert/CHECK/VERIFY 等防御宏的行；测试代码目录；第三方代码目录；置信度低于 0.5 的问题。</p>
+<h3 id="wireless-scanmcpjson"><a class="header" href="#wireless-scanmcpjson">wireless-scan.mcp.json</a></h3>
+<p>MCP (Model Context Protocol) 服务器配置，为 AI Agent 提供结构化的技能描述和参数定义。参数：mr_link (必填)、scan_rules (可选，启用规则 ID 列表)。</p>
+<h3 id="wireless-scanclaudemd"><a class="header" href="#wireless-scanclaudemd">wireless-scan.claude.md</a></h3>
+<p>Claude 特定的技能指令文件 (Markdown 格式)，包含角色设定、10 条规则 (每条含 BAD/GOOD 代码示例)、输出格式和注意事项。</p>
+<p>三个文件 (YAML / MCP JSON / Claude MD) 表达同一技能的不同载体，适配不同的 Agent 框架。</p>
 <h2 id="知识库-workerknowleage"><a class="header" href="#知识库-workerknowleage">知识库 (<code>worker/knowleage/</code>)</a></h2>
 <h3 id="wireless-radiomd"><a class="header" href="#wireless-radiomd">wireless-radio.md</a></h3>
-<p>4G/5G 无线协议代码审计领域知识库，涵盖：</p>
-<ul>
-<li><strong>协议栈基础</strong> — L1/L2/L3 层架构</li>
-<li><strong>4G LTE</strong> — RRC/PDCP/RLC/MAC 协议</li>
-<li><strong>5G NR</strong> — RRC/PDCP/RLC/MAC 新特性</li>
-<li><strong>安全机制</strong> — 加密算法、密钥派生、完整性保护</li>
-<li><strong>常见漏洞模式</strong> — 协议实现中的典型安全问题</li>
-<li><strong>审计关注点</strong> — 代码审计时应特别关注的领域</li>
-</ul>
+<p>4G/5G 无线协议代码审计领域知识库，涵盖低错问题的四大典型“雷区“：</p>
+<ol>
+<li><strong>TLV 解析陷阱与向前兼容性</strong> — 高低版本混跑时边界检查缺失</li>
+<li><strong>结构体强转与内存越界</strong> — 高版本追加字段后低版本结构体映射越界</li>
+<li><strong>Switch-Case 的“黑洞“</strong> — 缺少 default 分支，收到高版本新消息时未定义行为</li>
+<li><strong>ASN.1 生成代码的“逻辑空洞“</strong> — Optional 字段未检查 Presence 标志位</li>
+</ol>
 <h2 id="memory-rule-反馈闭环"><a class="header" href="#memory-rule-反馈闭环">Memory Rule 反馈闭环</a></h2>
-<p>Memory Rule 系统与技能/知识库协同工作：</p>
 <pre><code>扫描发现漏洞 → Accept → 生成正向 Memory Rule (pending)
-                              │
-                              ▼
-                    Committer+ 审批 → approved
-                              │
-                              ▼
-                    注入后续扫描 prompt
-                    (规划中：当前基础设施已就绪，
-                     但尚未接入 orchestrator prompt)
+│
+▼
+Committer+ 审批 → approved → 注入后续扫描 prompt (规划中)
 
-扫描误报 → Reject → 生成负向 Memory Rule (auto-active)
-                          │
-                          ▼
-                  后续扫描自动忽略此类模式
+扫描误报 → Reject → 生成负向 Memory Rule (auto-active) → 后续扫描自动忽略
 </code></pre>
 <blockquote>
-<p><strong>注意</strong>: Memory Rule 注入到 LLM prompt 的功能目前基础设施已就绪（数据库模型、API、前端管理），但尚未实际接入 Orchestrator 的扫描 prompt 中。这是路线图中的下一步工作。</p>
+<p><strong>注意</strong>: Memory Rule 注入到 LLM prompt 的功能基础设施已就绪，但尚未实际接入 Orchestrator 的扫描 prompt 中。</p>
 </blockquote>
 
                     </main>

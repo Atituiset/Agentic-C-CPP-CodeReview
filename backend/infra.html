@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-5dc748b6.js";
+            window.path_to_searchindex_js = "../searchindex-215a8a91.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-4550dfc0.js"></script>
+        <script src="../toc-97335460.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -189,7 +189,7 @@
     port: int = 8000
 
     class Config:
-        env_prefix = "APP_"  # 环境变量前缀
+        env_prefix = "APP_"
 </code></pre>
 <div class="table-wrapper">
 <table>
@@ -212,39 +212,22 @@
 <li><strong>规划</strong>: 迁移至 PostgreSQL</li>
 </ul>
 <h2 id="redis-backendredis_clientpy"><a class="header" href="#redis-backendredis_clientpy">Redis (<code>backend/redis_client.py</code>)</a></h2>
-<p>异步 Redis 客户端，使用连接池：</p>
-<pre><code class="language-python">class RedisClient:
-    async def initialize(self):
-        self.pool = await aioredis.create_redis_pool(settings.redis_url)
-
-    async def publish_log(self, channel: str, message: str):
-        await self.pool.publish(channel, json.dumps({
-            "type": "log", "data": message
-        }))
-
-    async def push_job_queue(self, job_data: dict):
-        await self.pool.lpush("job_queue", json.dumps(job_data))
-
-    async def pop_job_queue(self, timeout: int = 5):
-        result = await self.pool.brpop("job_queue", timeout=timeout)
-        return json.loads(result[1]) if result else None
-</code></pre>
-<h3 id="redis-用途"><a class="header" href="#redis-用途">Redis 用途</a></h3>
+<p>异步 Redis 客户端，使用连接池。</p>
+<h3 id="redis-键频道命名"><a class="header" href="#redis-键频道命名">Redis 键/频道命名</a></h3>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>用途</th><th>数据结构</th><th>频道/键</th></tr>
+<tr><th>用途</th><th>数据结构</th><th>键/频道</th></tr>
 </thead>
 <tbody>
-<tr><td>作业队列</td><td>List</td><td><code>job_queue</code> (LPUSH/BRPOP)</td></tr>
-<tr><td>日志推送</td><td>Pub/Sub</td><td><code>worker_{id}_slot_{n}</code></td></tr>
-<tr><td>元数据推送</td><td>Pub/Sub</td><td><code>worker_{id}_slot_{n}_meta</code></td></tr>
+<tr><td>作业队列</td><td>List</td><td><code>scan:job:queue</code> (LPUSH/BRPOP)</td></tr>
+<tr><td>Slot 日志推送</td><td>Pub/Sub</td><td><code>slot:{worker_id}:{slot_id}</code></td></tr>
+<tr><td>Slot 元数据推送</td><td>Pub/Sub</td><td><code>slot:{worker_id}:{slot_id}</code> (同频道，type 区分)</td></tr>
 </tbody>
 </table>
 </div>
 <h2 id="pydantic-schema-backendmodelsschemaspy"><a class="header" href="#pydantic-schema-backendmodelsschemaspy">Pydantic Schema (<code>backend/models/schemas.py</code>)</a></h2>
-<p>定义所有 API 请求/响应模型：</p>
-<h3 id="核心-schema"><a class="header" href="#核心-schema">核心 Schema</a></h3>
+<p>共 27 个 API 请求/响应模型：</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -253,50 +236,65 @@
 <tbody>
 <tr><td><code>JobCreate</code></td><td>创建作业请求</td></tr>
 <tr><td><code>JobResponse</code></td><td>作业响应</td></tr>
+<tr><td><code>JobFinalizePayload</code></td><td>Agent Finalize 请求 (含 results 数组)</td></tr>
+<tr><td><code>JobResumeRequest</code></td><td>恢复作业请求</td></tr>
+<tr><td><code>ScanRequest</code></td><td>Agent /scan 请求</td></tr>
 <tr><td><code>TaskResponse</code></td><td>任务响应</td></tr>
-<tr><td><code>SlotAcquire</code></td><td>占用槽位请求</td></tr>
-<tr><td><code>SlotPush</code></td><td>推送日志请求</td></tr>
-<tr><td><code>SlotStatus</code></td><td>槽位状态</td></tr>
+<tr><td><code>LoginPayload</code></td><td>登录请求</td></tr>
+<tr><td><code>LoginResponse</code></td><td>登录响应 (含 JWT)</td></tr>
+<tr><td><code>MeResponse</code></td><td>当前用户信息</td></tr>
 <tr><td><code>UserCreate</code></td><td>创建用户请求</td></tr>
 <tr><td><code>UserResponse</code></td><td>用户响应</td></tr>
-<tr><td><code>LoginPayload</code></td><td>登录请求</td></tr>
-<tr><td><code>LoginResponse</code></td><td>登录响应（含 JWT）</td></tr>
-<tr><td><code>MeResponse</code></td><td>当前用户信息</td></tr>
-<tr><td><code>WorkerRegisterResponse</code></td><td>Worker 注册响应</td></tr>
+<tr><td><code>WorkerCreate</code></td><td>创建 Worker 请求 (含 SSH 配置)</td></tr>
+<tr><td><code>WorkerUpdate</code></td><td>更新 Worker 请求</td></tr>
+<tr><td><code>WorkerResponse</code></td><td>Worker 响应</td></tr>
+<tr><td><code>WorkerRegister</code></td><td>Agent 注册请求</td></tr>
+<tr><td><code>WorkerHeartbeat</code></td><td>Agent 心跳请求</td></tr>
+<tr><td><code>WorkerDeployRequest</code></td><td>部署 Worker 请求</td></tr>
+<tr><td><code>WorkerGitStatusResponse</code></td><td>Worker Git 状态响应</td></tr>
+<tr><td><code>WorkerScheduleConfigResponse</code></td><td>Worker Schedule 响应</td></tr>
+<tr><td><code>WorkerScheduleConfigUpdate</code></td><td>Worker Schedule 更新请求</td></tr>
+<tr><td><code>SlotAcquirePayload</code></td><td>占用槽位请求</td></tr>
+<tr><td><code>SlotPushPayload</code></td><td>推送日志请求</td></tr>
+<tr><td><code>SlotStatusPayload</code></td><td>槽位状态更新</td></tr>
 <tr><td><code>VulnerabilityResponse</code></td><td>漏洞响应</td></tr>
-<tr><td><code>MemoryRuleCreate</code></td><td>创建 Memory Rule</td></tr>
-<tr><td><code>MemoryRuleResponse</code></td><td>Memory Rule 响应</td></tr>
+<tr><td><code>GitSyncResponse</code></td><td>Git 同步统计响应</td></tr>
+<tr><td><code>SchedulerStatusResponse</code></td><td>调度器状态响应</td></tr>
 </tbody>
 </table>
 </div>
 <h2 id="测试-backendtests"><a class="header" href="#测试-backendtests">测试 (<code>backend/tests/</code>)</a></h2>
-<p>16 个测试文件覆盖核心功能：</p>
+<p>27 个测试文件覆盖核心功能：</p>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>测试文件</th><th>覆盖范围</th></tr>
 </thead>
 <tbody>
-<tr><td><code>test_deps.py</code></td><td>依赖注入</td></tr>
-<tr><td><code>test_orm.py</code></td><td>ORM 模型</td></tr>
-<tr><td><code>test_schemas.py</code></td><td>Pydantic Schema</td></tr>
-<tr><td><code>test_redis.py</code></td><td>Redis 客户端</td></tr>
-<tr><td><code>test_orchestrator_import.py</code></td><td>Orchestrator 导入</td></tr>
-<tr><td><code>test_main.py</code></td><td>主应用</td></tr>
-<tr><td><code>test_slots.py</code></td><td>Slot 管理</td></tr>
-<tr><td><code>test_sse.py</code></td><td>SSE 通道</td></tr>
-<tr><td><code>test_jobs.py</code></td><td>作业管理</td></tr>
-<tr><td><code>test_worker.py</code></td><td>Worker 循环</td></tr>
-<tr><td><code>test_reports.py</code></td><td>报告查看</td></tr>
-<tr><td><code>test_integration.py</code></td><td>集成测试</td></tr>
-<tr><td><code>test_auth_service.py</code></td><td>认证服务</td></tr>
 <tr><td><code>test_auth.py</code></td><td>认证路由</td></tr>
-<tr><td><code>test_users.py</code></td><td>用户管理</td></tr>
-<tr><td><code>test_vulnerabilities.py</code></td><td>漏洞管理</td></tr>
+<tr><td><code>test_auth_service.py</code></td><td>认证服务</td></tr>
+<tr><td><code>test_deployer.py</code></td><td>SSH 部署</td></tr>
+<tr><td><code>test_deps.py</code></td><td>依赖注入</td></tr>
+<tr><td><code>test_git_sync.py</code></td><td>Git 同步</td></tr>
+<tr><td><code>test_integration.py</code></td><td>集成测试</td></tr>
+<tr><td><code>test_jobs.py</code></td><td>作业管理</td></tr>
+<tr><td><code>test_main.py</code></td><td>主应用</td></tr>
 <tr><td><code>test_memory.py</code></td><td>Memory Rule</td></tr>
+<tr><td><code>test_orchestrator_import.py</code></td><td>Orchestrator 导入</td></tr>
+<tr><td><code>test_orm.py</code></td><td>ORM 模型</td></tr>
+<tr><td><code>test_orm_extended.py</code></td><td>ORM 扩展测试</td></tr>
+<tr><td><code>test_redis.py</code></td><td>Redis 客户端</td></tr>
+<tr><td><code>test_report_parser.py</code></td><td>报告解析</td></tr>
+<tr><td><code>test_reports.py</code></td><td>报告路由</td></tr>
 <tr><td><code>test_resume.py</code></td><td>作业恢复</td></tr>
 <tr><td><code>test_scheduler.py</code></td><td>调度器</td></tr>
-<tr><td><code>test_git_sync.py</code></td><td>Git 同步</td></tr>
+<tr><td><code>test_schemas.py</code></td><td>Pydantic Schema</td></tr>
+<tr><td><code>test_slots.py</code></td><td>Slot 管理</td></tr>
+<tr><td><code>test_sse.py</code></td><td>SSE 通道</td></tr>
+<tr><td><code>test_users.py</code></td><td>用户管理</td></tr>
+<tr><td><code>test_vulnerabilities.py</code></td><td>漏洞管理</td></tr>
+<tr><td><code>test_worker.py</code></td><td>Worker 循环</td></tr>
+<tr><td><code>test_worker_jobs.py</code></td><td>Worker 作业</td></tr>
 </tbody>
 </table>
 </div>
