@@ -1,5 +1,7 @@
 # Agentic CodeReview Platform
 
+> 📖 中文深度文档（GitHub Pages）：<https://atituiset.github.io/Agentic-C-CPP-CodeReview/>
+
 基于 FastAPI + Vite/React + Redis + SQLite 的代码审查平台。
 
 ## 技术栈
